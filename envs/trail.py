@@ -75,6 +75,7 @@ class TrailAgent:
     def sniff(self):
         odor = self.map.get_odor(*self.position)
         self.odor_history.append((odor, *self.position[:]))
+        return odor
 
     def make_pos_observation(self, heading, view_distance):
         pos_img = np.zeros((2 * view_distance, 2 * view_distance))
@@ -113,7 +114,7 @@ class TrailAgent:
         past_odor = past[:, 0]
         past_pos = past[:, 1:]
 
-        orig_trans = -np.tile(self.position, (len(self.position_history), 1))
+        orig_trans = -np.tile(self.position, (len(past_pos), 1))
         rot_ang = heading
         rot_trans = np.array([
             [np.cos(rot_ang), -np.sin(rot_ang)],
@@ -127,9 +128,12 @@ class TrailAgent:
             x_coord, y_coord = pos
             if 0 <= x_coord < view_distance * 2 \
                     and 0 <= y_coord < view_distance * 2:
-                odor_img[x_coord, y_coord] = odor
 
-        return odor_img  # TODO: test
+                x = np.round(x_coord).astype(int)
+                y = np.round(y_coord).astype(int)
+                odor_img[x, y] = odor
+
+        return odor_img
 
     def render(self):
         self.map.plot()
@@ -188,12 +192,18 @@ class StraightTrail(TrailMap):
 if __name__ == '__main__':
     trail_map = StraightTrail()
     agent = TrailAgent(trail_map)
-    agent.move(0, 5)
-    agent.move(5, 5)
-    agent.move(-5, 5)
-    agent.move(-5, -5)
-    agent.move(5, -5)
-    obs = agent.make_observation(0, 15)
+    agent.move(0, 2)
+    agent.sniff()
+    agent.move(2, 2)
+    agent.sniff()
+    agent.move(-3, 3)
+    agent.sniff()
+    agent.move(1, 2)
+    agent.sniff()
+    # agent.move(-5, 5)
+    # agent.move(-5, -5)
+    # agent.move(5, -5)
+    obs = agent.make_odor_observation(-np.pi / 4, 10)
 
     img_corr = np.flip(obs.T, axis=0)
     # print(img_corr)
