@@ -5,7 +5,8 @@ author: William Tong (wtong@g.harvard.edu)
 """
 
 # <codecell>
-from typing import Iterable
+from ast import get_docstring
+from typing import Iterable, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -19,7 +20,7 @@ class TrailEnv(gym.Env):
     max_speed = 10
     view_distance = 20
 
-    def __init__(self):
+    def __init__(self, trail_map):
         super().__init__()
 
         """
@@ -31,8 +32,7 @@ class TrailEnv(gym.Env):
 
         self.action_space = spaces.Box(
             low=np.array([-TrailEnv.heading_bound, 0]),
-            high=np.array([TrailEnv.heading_bound, TrailEnv.max_speed]),
-            shape=(2,))
+            high=np.array([TrailEnv.heading_bound, TrailEnv.max_speed]))
 
         """
         Observe the strength of odor in an ego-centric frame of reference. This
@@ -42,32 +42,52 @@ class TrailEnv(gym.Env):
             The second channel represents the agent's odor history
         """
         self.observation_space = spaces.Box(low=0, high=1,
-                                            shape=(-TrailEnv.view_distance, TrailEnv.view_distance, 2))
+                                            shape=(2 * TrailEnv.view_distance, 2 * TrailEnv.view_distance, 2))
+
+        self.map = trail_map
+        self.agent = TrailAgent(self.map, TrailEnv.view_distance)
 
     def step(self, action):
         # return observation, reward, done, info
-        return 0, 0, False, None
+        self.agent.move(action[0], action[1])
+        self.agent.sniff()
+
+        obs = self.agent.make_observation()
+        reward, is_done = self.agent.get_reward()
+
+        return obs, reward, is_done, {}
 
     def reset(self):
         # return observation  # reward, done, info can't be included
-        return 0
+        self.agent = TrailAgent(self.map, TrailEnv.view_distance)
+        obs = self.agent.make_observation()
+        return obs
 
-    # def render(self, mode='human'):
-    #     ...
+    def render(self, mode='human'):
+        obs = self.agent.make_observation()
+        print(obs[:, :, 0])
 
     # def close(self):
     #     ...
 
 
 class TrailAgent:
-    def __init__(self, trail_map):
+    def __init__(self, trail_map, view_distance):
         self.position = [0, 0]
+        self.heading = 0
         self.map = trail_map
+        self.view_distance = view_distance
 
         self.position_history = [[0, 0]]
         self.odor_history = []
 
-    def move(self, dx, dy):
+        self.sniff()
+
+    def move(self, d_heading, speed):
+        self.heading += d_heading
+        dx = np.sin(self.heading) * speed
+        dy = np.cos(self.heading) * speed
+
         self.position[0] += dx
         self.position[1] += dy
         self.position_history.append(self.position[:])
@@ -77,19 +97,29 @@ class TrailAgent:
         self.odor_history.append((odor, *self.position[:]))
         return odor
 
-    def make_pos_observation(self, heading, view_distance):
-        pos_img = np.zeros((2 * view_distance, 2 * view_distance))
+    def get_reward(self) -> Tuple[float, bool]:
+        reward, is_done = self.map.get_reward(*self.position)
+        return reward[0], is_done
+
+    def make_observation(self):
+        pos_obs = self.make_pos_observation()
+        odor_obs = self.make_odor_observation()
+        total_obs = np.stack((pos_obs, odor_obs), axis=-1)
+        return total_obs
+
+    def make_pos_observation(self):
+        pos_img = np.zeros((2 * self.view_distance, 2 * self.view_distance))
         past_pos = np.vstack(self.position_history)
 
         orig_trans = -np.tile(self.position, (len(self.position_history), 1))
-        rot_ang = heading
+        rot_ang = self.heading
         rot_trans = np.array([
             [np.cos(rot_ang), -np.sin(rot_ang)],
             [np.sin(rot_ang), np.cos(rot_ang)]
         ])
 
         ego = (rot_trans @ (past_pos + orig_trans).T).T
-        ego_pos = ego + view_distance
+        ego_pos = ego + self.view_distance
 
         # Manhattan interpolation
         for i, point in enumerate(ego_pos[:-1]):
@@ -102,32 +132,32 @@ class TrailAgent:
             for i in range(steps):
                 x_coord = np.round(point[0] + i * dx).astype(int)
                 y_coord = np.round(point[1] + i * dy).astype(int)
-                if 0 <= x_coord < view_distance * 2 \
-                        and 0 <= y_coord < view_distance * 2:
+                if 0 <= x_coord < self.view_distance * 2 \
+                        and 0 <= y_coord < self.view_distance * 2:
                     pos_img[x_coord, y_coord] = 1
 
         return pos_img
 
-    def make_odor_observation(self, heading, view_distance):
-        odor_img = np.zeros((2 * view_distance, 2 * view_distance))
+    def make_odor_observation(self):
+        odor_img = np.zeros((2 * self.view_distance, 2 * self.view_distance))
         past = np.vstack(self.odor_history)
         past_odor = past[:, 0]
         past_pos = past[:, 1:]
 
         orig_trans = -np.tile(self.position, (len(past_pos), 1))
-        rot_ang = heading
+        rot_ang = self.heading
         rot_trans = np.array([
             [np.cos(rot_ang), -np.sin(rot_ang)],
             [np.sin(rot_ang), np.cos(rot_ang)]
         ])
 
         ego = (rot_trans @ (past_pos + orig_trans).T).T
-        ego_pos = ego + view_distance
+        ego_pos = ego + self.view_distance
 
         for odor, pos in zip(past_odor, ego_pos):
             x_coord, y_coord = pos
-            if 0 <= x_coord < view_distance * 2 \
-                    and 0 <= y_coord < view_distance * 2:
+            if 0 <= x_coord < self.view_distance * 2 \
+                    and 0 <= y_coord < self.view_distance * 2:
 
                 x = np.round(x_coord).astype(int)
                 y = np.round(y_coord).astype(int)
@@ -150,6 +180,9 @@ class TrailMap:
     def get_odor(self, x, y):
         raise NotImplementedError('get_odor not implemented!')
 
+    def get_reward(self, x, y) -> Tuple[float, bool]:
+        raise NotImplementedError('get_reward not implemented!')
+
     def size(self):
         return (self.resolution, self.resolution)
 
@@ -165,6 +198,8 @@ class TrailMap:
 class StraightTrail(TrailMap):
     def __init__(self):
         super().__init__()
+        self.target = (0, 50)
+        self.tolerance = 0.5
 
     def get_odor(self, x, y):
         if not isinstance(x, np.ndarray):
@@ -188,25 +223,31 @@ class StraightTrail(TrailMap):
 
         return odor
 
+    def get_reward(self, x, y):
+        is_done = np.all(np.isclose(self.target, (x, y), atol=0.5))
+        return self.get_odor(x, y), bool(is_done)
+
 
 if __name__ == '__main__':
-    trail_map = StraightTrail()
-    agent = TrailAgent(trail_map)
-    agent.move(0, 2)
-    agent.sniff()
-    agent.move(2, 2)
-    agent.sniff()
-    agent.move(-3, 3)
-    agent.sniff()
-    agent.move(1, 2)
-    agent.sniff()
-    # agent.move(-5, 5)
-    # agent.move(-5, -5)
-    # agent.move(5, -5)
-    obs = agent.make_odor_observation(-np.pi / 4, 10)
 
-    img_corr = np.flip(obs.T, axis=0)
-    # print(img_corr)
-    plt.imshow(img_corr)
+    # from stable_baselines3.common.env_checker import check_env
+    # env = TrailEnv(StraightTrail())
+    # check_env(env)
+    # print('done!')
 
-# %%
+    # trail_map = StraightTrail()
+    # agent = TrailAgent(trail_map)
+    # agent.move(0, 5)
+    # agent.move(np.pi / 4, 5)
+    # agent.move(np.pi / 4, 5)
+    # agent.move(np.pi / 4, -5)
+    # # agent.move(-np.pi / 4, 0)
+    # # agent.move(-np.pi / 6, 2)
+
+    # obs = agent.make_pos_observation(10)
+
+    # img_corr = np.flip(obs.T, axis=0)
+    # # print(img_corr)
+    # plt.imshow(img_corr)
+
+    # %%
