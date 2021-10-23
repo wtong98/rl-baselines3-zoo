@@ -34,6 +34,14 @@ class TrailEnv(gym.Env):
         """
         self.action_space = spaces.Discrete(4)
 
+        # self.action_space = spaces.Box(
+        #     low=np.array([-1]),
+        #     high=np.array([1]))
+
+        # self.action_space = spaces.Box(
+        #     low=np.array([-1, -1]),
+        #     high=np.array([1, 1]))
+
         """
         Observe the strength of odor in an ego-centric frame of reference. This
         space can be interpreted as a 2 * view_distance x 2 * view_distance x num_channels
@@ -50,8 +58,10 @@ class TrailEnv(gym.Env):
         self.curr_step = 0
 
     def step(self, action):
+        # return observation, reward, done, info
         # self.agent.move(TrailEnv.heading_bound * action[0], TrailEnv.max_speed * action[1])
 
+        # self.agent.move(TrailEnv.heading_bound * action[0], TrailEnv.max_speed)
         heading = None
         if action == 0:
             heading = 0
@@ -63,6 +73,7 @@ class TrailEnv(gym.Env):
             heading = np.pi / 2
 
         self.agent.move_abs(heading, TrailEnv.max_speed)
+        # self.agent.move_abs(TrailEnv.heading_bound * action[0], TrailEnv.max_speed)
         # self.agent.move(0, action[0] * TrailEnv.max_speed)
         # self.agent.move_direct(TrailEnv.max_speed * action[0], TrailEnv.max_speed * action[1])
 
@@ -87,6 +98,7 @@ class TrailEnv(gym.Env):
         return obs, reward, is_done, {}
 
     def reset(self):
+        # return observation  # reward, done, info can't be included
         self.curr_step = 0
         self.agent = TrailAgent(self.map, TrailEnv.view_distance)
         obs = self.agent.make_observation()
@@ -95,6 +107,9 @@ class TrailEnv(gym.Env):
     def render(self, mode='human'):
         obs = self.agent.make_observation()
         print(obs[:, :, 0])
+
+    # def close(self):
+    #     ...
 
 
 class TrailAgent:
@@ -136,10 +151,15 @@ class TrailAgent:
         self.odor_history.append((odor, *self.position[:]))
         return odor
 
+    # TODO: calibrate reward carefully <-- YES!
     def get_reward(self) -> Tuple[float, bool]:
         reward, is_done = self.map.get_reward(*self.position)
+        # if not is_done:
+        #     if self.position[1] - self.position_history[-2][1] > 0:
+        #         reward = [1]
+        #     else:
+        #         reward = [-1]
 
-        # TODO: experiment with different reward strategies
         reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
 
         if is_done:
@@ -281,11 +301,20 @@ class StraightTrail(TrailMap):
 
         return odor / 10
 
-    # TODO: consolidate rewards
     def get_reward(self, x, y):
+
         is_done = np.all(np.isclose(self.target, (x, y), atol=self.tolerance))
-        # return self.get_odor(x, y), bool(is_done)
-        return None, bool(is_done)
+        # is_done = np.isclose(self.target[1], y, atol=2) and np.isclose(self.target[0], x, atol=np.inf)
+        # if is_done:
+        #     reward = 10
+        # else:
+        #     reward = 0
+        return self.get_odor(x, y), bool(is_done)
+
+        if is_done:
+            print("Success!")
+
+        return [reward], bool(is_done)
 
 
 # <codecell>
@@ -319,6 +348,11 @@ env = TrailEnv(StraightTrail())
 # model = TD3.load('trail_model')
 model = PPO.load('trail_model')
 
+# TODO: make heading more evident in image?
+# TODO: make heading a discrete action?
+# TODO: try on different task to make sure (image based)
+# TODO: try with paired down state-space (just 3 points)
+# TODO: try with absolute orientation
 obs = env.reset()
 plt.plot(obs[..., 0])
 for _ in range(10):
