@@ -19,7 +19,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 class TrailEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     heading_bound = np.pi
-    max_speed = 5
+    max_speed = 3
     view_distance = 25
     max_steps = 20
 
@@ -32,7 +32,7 @@ class TrailEnv(gym.Env):
                 in radians. North is equivalent to heading=0
             Velocity is the step-size the agent progresses in the environment
         """
-        self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(8)
 
         """
         Observe the strength of odor in an ego-centric frame of reference. This
@@ -51,16 +51,17 @@ class TrailEnv(gym.Env):
 
     def step(self, action):
         # self.agent.move(TrailEnv.heading_bound * action[0], TrailEnv.max_speed * action[1])
+        heading = (action / self.action_space.n) * 2 * np.pi
 
-        heading = None
-        if action == 0:
-            heading = 0
-        elif action == 1:
-            heading = - np.pi / 2
-        elif action == 2:
-            heading = -np.pi
-        elif action == 3:
-            heading = np.pi / 2
+        # heading = None
+        # if action == 0:
+        #     heading = 0
+        # elif action == 1:
+        #     heading = - np.pi / 2
+        # elif action == 2:
+        #     heading = -np.pi
+        # elif action == 3:
+        #     heading = np.pi / 2
 
         self.agent.move_abs(heading, TrailEnv.max_speed)
         # self.agent.move(0, action[0] * TrailEnv.max_speed)
@@ -263,8 +264,7 @@ class TrailMap:
 class StraightTrail(TrailMap):
     def __init__(self):
         super().__init__()
-        self.dist = 10
-        self.target = (self.dist, self.dist)
+        self.target = (10, 15)
         self.tolerance = 2
 
     def get_odor(self, x, y):
@@ -320,13 +320,18 @@ env = TrailEnv(StraightTrail())
 model = PPO.load('trail_model')
 
 obs = env.reset()
-plt.plot(obs[..., 0])
-for _ in range(10):
-    plt.imshow(obs)
+plt.imshow(obs)
+for _ in range(20):
     action, _ = model.predict(obs)
+    # action, _ = model.predict(obs, deterministic=True)
     obs, _, is_done, _ = env.step(action)
     print(is_done)
+
+    plt.imshow(obs)
     plt.show()
+
+    if is_done:
+        break
 
 # <codecell>
 env = TrailEnv(StraightTrail())
