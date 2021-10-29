@@ -8,6 +8,7 @@ author: William Tong (wtong@g.harvard.edu)
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3 import DDPG, TD3, PPO
 from typing import Tuple
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -23,8 +24,11 @@ class TrailEnv(gym.Env):
     view_distance = 25
     max_steps = 20
 
-    def __init__(self, trail_map):
+    def __init__(self, trail_map=None):
         super().__init__()
+
+        if trail_map == None:
+            trail_map = StraightTrail()
 
         """
         The action space is the tuple (heading, velocity).
@@ -52,17 +56,6 @@ class TrailEnv(gym.Env):
     def step(self, action):
         # self.agent.move(TrailEnv.heading_bound * action[0], TrailEnv.max_speed * action[1])
         heading = (action / self.action_space.n) * 2 * np.pi
-
-        # heading = None
-        # if action == 0:
-        #     heading = 0
-        # elif action == 1:
-        #     heading = - np.pi / 2
-        # elif action == 2:
-        #     heading = -np.pi
-        # elif action == 3:
-        #     heading = np.pi / 2
-
         self.agent.move_abs(heading, TrailEnv.max_speed)
         # self.agent.move(0, action[0] * TrailEnv.max_speed)
         # self.agent.move_direct(TrailEnv.max_speed * action[0], TrailEnv.max_speed * action[1])
@@ -74,17 +67,17 @@ class TrailEnv(gym.Env):
 
         if self.curr_step == TrailEnv.max_steps:
             is_done = True
-            print('hit max')
+            # print('hit max')
 
         if self.agent.position[0] > self.agent.view_distance or self.agent.position[0] < -self.agent.view_distance \
                 or self.agent.position[1] > self.agent.view_distance or self.agent.position[1] < -self.agent.view_distance:
             is_done = True
             reward = -10
-            print('Walked off!')
+            # print('Walked off!')
 
         self.curr_step += 1
 
-        print('action: ', action, 'rew:', reward, 'pos:', self.agent.position)
+        # print('action: ', action, 'rew:', reward, 'pos:', self.agent.position)
         return obs, reward, is_done, {}
 
     def reset(self):
@@ -96,6 +89,20 @@ class TrailEnv(gym.Env):
     def render(self, mode='human'):
         obs = self.agent.make_observation()
         print(obs[:, :, 0])
+
+    def play_anim(self, model, is_deterministic=False, out_path='out.mp4'):
+        obs = self.reset()
+        frames = [obs]
+
+        for _ in range(self.max_steps):
+            action, _ = model.predict(obs, deterministic=is_deterministic)
+            obs, _, is_done, _ = env.step(action)
+            frames.append(obs)
+
+            if is_done:
+                break
+
+        imageio.mimwrite(out_path, frames, fps=2)
 
 
 class TrailAgent:
@@ -294,13 +301,9 @@ if __name__ == '__main__':
 
     def env_fn(): return TrailEnv(StraightTrail())
 
-    # env = TrailEnv(StraightTrail())
     env = DummyVecEnv([env_fn for _ in range(8)])
-    # TODO: try CNN policy with real images
-    # model = TD3("CnnPolicy", env,
-    #             verbose=1,
-    #             action_noise=NormalActionNoise(0, 2),
-    #             learning_starts=500)
+    eval_env = TrailEnv(StraightTrail())
+
     model = PPO("CnnPolicy", env, verbose=1,
                 n_steps=512,
                 batch_size=128,
@@ -309,10 +312,19 @@ if __name__ == '__main__':
                 gae_lambda=0.9,
                 use_sde=False,
                 n_epochs=20,
-                learning_rate=0.0001)
-    model.learn(total_timesteps=100000, log_interval=5)
+                learning_rate=0.0001,
+                tensorboard_log='log')
+
+    model.learn(total_timesteps=100000, log_interval=5,
+                eval_env=eval_env, eval_freq=512)
     model.save('trail_model')
     exit()
+
+# <codecell>
+env = TrailEnv(StraightTrail())
+model = PPO.load('trail_model')
+
+env.play_anim(model)
 
 # <codecell>
 env = TrailEnv(StraightTrail())
