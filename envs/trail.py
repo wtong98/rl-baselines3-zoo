@@ -24,8 +24,10 @@ class TrailEnv(gym.Env):
     view_distance = 25
     max_steps = 20
 
-    def __init__(self, trail_map=None):
+    def __init__(self, trail_map=None, discrete=True):
         super().__init__()
+
+        self.discrete = discrete
 
         if trail_map == None:
             trail_map = StraightTrail()
@@ -36,7 +38,11 @@ class TrailEnv(gym.Env):
                 in radians. North is equivalent to heading=0
             Velocity is the step-size the agent progresses in the environment
         """
-        self.action_space = spaces.Discrete(8)
+
+        if self.discrete:
+            self.action_space = spaces.Discrete(8)
+        else:
+            self.action_space = spaces.Box(low=-1, high=1, shape=(2,))
 
         """
         Observe the strength of odor in an ego-centric frame of reference. This
@@ -54,11 +60,18 @@ class TrailEnv(gym.Env):
         self.curr_step = 0
 
     def step(self, action):
+        # old ideas:
         # self.agent.move(TrailEnv.heading_bound * action[0], TrailEnv.max_speed * action[1])
-        heading = (action / self.action_space.n) * 2 * np.pi
-        self.agent.move_abs(heading, TrailEnv.max_speed)
         # self.agent.move(0, action[0] * TrailEnv.max_speed)
         # self.agent.move_direct(TrailEnv.max_speed * action[0], TrailEnv.max_speed * action[1])
+
+        if self.discrete:
+            heading = (action / self.action_space.n) * 2 * np.pi
+            self.agent.move_abs(heading, TrailEnv.max_speed)
+        else:
+            heading = action[0] * np.pi
+            speed = ((action[1] + 1) / 2) * TrailEnv.max_speed
+            self.agent.move_abs(heading, speed)
 
         self.agent.sniff()
 
@@ -151,7 +164,7 @@ class TrailAgent:
         reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
 
         if is_done:
-            reward = [1000]
+            reward = [100]
 
         return reward[0], is_done
 
@@ -242,6 +255,12 @@ class TrailAgent:
         plt.show()
 
 
+class TrailContinuousEnv(TrailEnv):
+
+    def __init__(self, trail_map=None):
+        super().__init__(trail_map=trail_map, discrete=False)
+
+
 class TrailMap:
     def __init__(self):
         self.upper_left = (-50, 50)
@@ -319,7 +338,7 @@ if __name__ == '__main__':
                 eval_env=eval_env, eval_freq=512)
     model.save('trail_model')
     exit()
-
+'''
 # <codecell>
 env = TrailEnv(StraightTrail())
 model = PPO.load('trail_model')
@@ -346,7 +365,8 @@ for _ in range(20):
         break
 
 # <codecell>
-env = TrailEnv(StraightTrail())
+# env = TrailEnv(StraightTrail(), discrete=False)
+env = TrailContinuousEnv()
 
 obs = env.reset()
 plt.imshow(obs[..., 0])
@@ -360,7 +380,8 @@ for _ in range(10):
 
 
 # <codecell>
-env = TrailEnv(StraightTrail())
+# env = TrailEnv(StraightTrail(), discrete=False)
+env = TrailContinuousEnv()
 check_env(env)
 print('done!')
 
@@ -394,3 +415,4 @@ trail_map.plot()
 plt.show()
 
 # %%
+'''

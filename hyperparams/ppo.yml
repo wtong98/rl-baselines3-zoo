@@ -9,6 +9,18 @@ TrailTracker-v0:
   ent_coef: 0.01
   gamma: 0.98
 
+# TODO: needs mad tuning
+TrailTrackerCont-v0:
+  policy: 'CnnPolicy'
+  n_envs: 8
+  n_steps: 512
+  n_epochs: 20
+  batch_size: 128
+  n_timesteps: !!float 1e5
+  learning_rate: 0.0001
+  ent_coef: 0.01
+  gamma: 0.98
+
 
 atari:
   env_wrapper:
