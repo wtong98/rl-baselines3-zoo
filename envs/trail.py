@@ -15,6 +15,7 @@ import numpy as np
 import gym
 from gym import spaces
 from stable_baselines3.common.noise import NormalActionNoise
+from stable_baselines3.common.policies import ActorCriticCnnPolicy
 
 
 class TrailEnv(gym.Env):
@@ -173,16 +174,17 @@ class TrailAgent:
         odor_obs = self.make_odor_observation()
 
         self_obs = np.zeros((2 * self.view_distance, 2 * self.view_distance))
-        x = int(np.round(self.position[0] + self.view_distance))
-        y = int(np.round(self.position[1] + self.view_distance))
+        # x = int(np.round(self.position[0] + self.view_distance))
+        # y = int(np.round(self.position[1] + self.view_distance))
 
-        if 0 <= x < self.view_distance * 2 \
-                and 0 <= y < self.view_distance * 2:
-            self_obs[x, y] = 255
+        # if 0 <= x < self.view_distance * 2 \
+        #         and 0 <= y < self.view_distance * 2:
+        #     self_obs[x, y] = 255
 
-        self_obs = np.flip(self_obs.T, axis=0)
+        # self_obs = np.flip(self_obs.T, axis=0)
 
         total_obs = np.stack((pos_obs, odor_obs, self_obs), axis=-1)
+        # total_obs = np.stack((pos_obs, odor_obs), axis=-1)
         return total_obs
 
     def make_pos_observation(self):
@@ -197,8 +199,8 @@ class TrailAgent:
         ])
 
         # ego = (rot_trans @ (past_pos + orig_trans).T).T
-        # ego = past_pos + orig_trans
-        ego = past_pos
+        ego = past_pos + orig_trans
+        # ego = past_pos
         ego_pos = ego + self.view_distance
 
         # Manhattan interpolation
@@ -233,8 +235,8 @@ class TrailAgent:
         ])
 
         # ego = (rot_trans @ (past_pos + orig_trans).T).T
-        # ego = past_pos + orig_trans
-        ego = past_pos
+        ego = past_pos + orig_trans
+        # ego = past_pos
         ego_pos = ego + self.view_distance
 
         for odor, pos in zip(past_odor, ego_pos):
@@ -287,7 +289,7 @@ class TrailMap:
         plt.scatter(*self.target)
 
 
-class StraightTrail(TrailMap):
+class RoundTrail(TrailMap):
     def __init__(self):
         super().__init__()
         self.target = (10, 15)
@@ -314,31 +316,82 @@ class StraightTrail(TrailMap):
         return None, bool(is_done)
 
 
+class StraightTrail(TrailMap):
+    def __init__(self):
+        super().__init__()
+        self.target = (10, 15)
+        self.tolerance = 2
+
+    def get_odor(self, x, y):
+        if not isinstance(x, np.ndarray):
+            x = np.array([x])
+            y = np.array([y])
+
+        odor = - 0.1 * ((x - self.target[0]) ** 2 + (y - self.target[1]) ** 2) + 100
+
+        # odor = (y + 10) / (1 + 0.5 * x**2)
+        # # odor = (y + 10)
+        # odor[odor < 0] = 0
+        # odor[y > self.dist] = 0
+
+        return odor / 10
+
+    # TODO: consolidate rewards
+    def get_reward(self, x, y):
+        is_done = np.all(np.isclose(self.target, (x, y), atol=self.tolerance))
+        # return self.get_odor(x, y), bool(is_done)
+        return None, bool(is_done)
+
+
+# TODO: abstract away and experiment with more complex
+#       trail geometries / reward systems
 # <codecell>
 if __name__ == '__main__':
     from stable_baselines3.common.vec_env import DummyVecEnv
 
-    def env_fn(): return TrailEnv(StraightTrail())
+    def env_fn(): return TrailEnv(StraightTrail(), discrete=False)
 
     env = DummyVecEnv([env_fn for _ in range(8)])
-    eval_env = TrailEnv(StraightTrail())
+    eval_env = TrailEnv(StraightTrail(), discrete=False)
 
+    # Discrete (untuned)
+    # model = PPO("CnnPolicy", env, verbose=1,
+    #             n_steps=512,
+    #             batch_size=128,
+    #             ent_coef=0.01,
+    #             gamma=0.98,
+    #             gae_lambda=0.9,
+    #             use_sde=False,
+    #             n_epochs=20,
+    #             learning_rate=0.0001,
+    #             tensorboard_log='log')
+
+    # TODO: can try tuning with different variations on the CNN:
+    # https://github.com/DLR-RM/stable-baselines3/blob/2bb4500948dccba3292135b1e295532fbc32f668/stable_baselines3/common/torch_layers.py#L51
     model = PPO("CnnPolicy", env, verbose=1,
-                n_steps=512,
-                batch_size=128,
-                ent_coef=0.01,
-                gamma=0.98,
-                gae_lambda=0.9,
+                n_steps=64,
+                batch_size=512,
+                ent_coef=0.0001,
+                gamma=0.995,
+                gae_lambda=1.0,
                 use_sde=False,
+                clip_range=0.1,
+                max_grad_norm=2,
+                vf_coef=0.715,
                 n_epochs=20,
-                learning_rate=0.0001,
-                tensorboard_log='log')
+                learning_rate=0.00025,
+                tensorboard_log='log',
+                # policy_kwargs={
+                #     'net_arch': 'medium',
+                #     'activation_fn': 'relu'
+                # }
+                )
 
     model.learn(total_timesteps=100000, log_interval=5,
                 eval_env=eval_env, eval_freq=512)
     model.save('trail_model')
     exit()
-'''
+
 # <codecell>
 env = TrailEnv(StraightTrail())
 model = PPO.load('trail_model')
@@ -346,27 +399,30 @@ model = PPO.load('trail_model')
 env.play_anim(model)
 
 # <codecell>
-env = TrailEnv(StraightTrail())
+env = TrailEnv(StraightTrail(), discrete=False)
 # model = TD3.load('trail_model')
 model = PPO.load('trail_model')
 
 obs = env.reset()
 plt.imshow(obs)
 for _ in range(20):
-    action, _ = model.predict(obs)
-    # action, _ = model.predict(obs, deterministic=True)
+    # action, _ = model.predict(obs)
+    action, _ = model.predict(obs, deterministic=True)
+    print(action)
     obs, _, is_done, _ = env.step(action)
     print(is_done)
 
+    # plt.imshow(obs[..., 1])
     plt.imshow(obs)
     plt.show()
 
     if is_done:
         break
 
+print(env.agent.odor_history)  # TODO: insufficient gradient in odor history
+
 # <codecell>
-# env = TrailEnv(StraightTrail(), discrete=False)
-env = TrailContinuousEnv()
+env = TrailEnv()
 
 obs = env.reset()
 plt.imshow(obs[..., 0])
@@ -380,8 +436,7 @@ for _ in range(10):
 
 
 # <codecell>
-# env = TrailEnv(StraightTrail(), discrete=False)
-env = TrailContinuousEnv()
+env = TrailEnv()
 check_env(env)
 print('done!')
 
@@ -407,7 +462,8 @@ obs = agent.make_observation()
 
 img_corr = np.flip(obs.T, axis=0)
 # print(img_corr)
-plt.imshow(obs)
+plt.imshow(obs[..., 1])
+print('ODOR', agent.odor_history)
 
 # %%
 trail_map = StraightTrail()
@@ -415,4 +471,3 @@ trail_map.plot()
 plt.show()
 
 # %%
-'''
