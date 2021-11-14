@@ -289,33 +289,6 @@ class TrailMap:
         plt.scatter(*self.target)
 
 
-class RoundTrail(TrailMap):
-    def __init__(self):
-        super().__init__()
-        self.target = (10, 15)
-        self.tolerance = 2
-
-    def get_odor(self, x, y):
-        if not isinstance(x, np.ndarray):
-            x = np.array([x])
-            y = np.array([y])
-
-        odor = - 0.1 * ((x - self.target[0]) ** 2 + (y - self.target[1]) ** 2) + 10
-
-        # odor = (y + 10) / (1 + 0.5 * x**2)
-        # # odor = (y + 10)
-        # odor[odor < 0] = 0
-        # odor[y > self.dist] = 0
-
-        return odor / 10
-
-    # TODO: consolidate rewards
-    def get_reward(self, x, y):
-        is_done = np.all(np.isclose(self.target, (x, y), atol=self.tolerance))
-        # return self.get_odor(x, y), bool(is_done)
-        return None, bool(is_done)
-
-
 class StraightTrail(TrailMap):
     def __init__(self):
         super().__init__()
