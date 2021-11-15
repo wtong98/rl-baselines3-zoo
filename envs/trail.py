@@ -17,6 +17,8 @@ from gym import spaces
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 
+from trail_map import *
+
 
 class TrailEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -154,20 +156,21 @@ class TrailAgent:
         self.position_history.append(self.position[:])
 
     def sniff(self):
-        odor = self.map.get_odor(*self.position)
+        odor = self.map.sample(*self.position)
         self.odor_history.append((odor, *self.position[:]))
         return odor
 
     def get_reward(self) -> Tuple[float, bool]:
-        reward, is_done = self.map.get_reward(*self.position)
+        # reward, is_done = self.map.get_reward(*self.position)
+        is_done = self.map.is_done(*self.position)
 
         # TODO: experiment with different reward strategies
         reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
 
         if is_done:
-            reward = [100]
+            reward = 100
 
-        return reward[0], is_done
+        return reward, is_done
 
     def make_observation(self):
         pos_obs = self.make_pos_observation()
@@ -263,69 +266,16 @@ class TrailContinuousEnv(TrailEnv):
         super().__init__(trail_map=trail_map, discrete=False)
 
 
-class TrailMap:
-    def __init__(self):
-        self.upper_left = (-50, 50)
-        self.lower_right = (50, -50)
-        self.resolution = 100
+global_discrete = True
 
-    def get_odor(self, x, y):
-        raise NotImplementedError('get_odor not implemented!')
-
-    def get_reward(self, x, y) -> Tuple[float, bool]:
-        raise NotImplementedError('get_reward not implemented!')
-
-    def size(self):
-        return (self.resolution, self.resolution)
-
-    def plot(self):
-        xx, yy = np.meshgrid(
-            np.linspace(self.upper_left[0], self.lower_right[0], self.resolution),
-            np.linspace(self.upper_left[1], self.lower_right[1], self.resolution))
-
-        odors = self.get_odor(xx, yy)
-        print(np.max(odors))
-        plt.scatter(xx.ravel(), yy.ravel(), odors.ravel())
-        plt.scatter(*self.target)
-
-
-class StraightTrail(TrailMap):
-    def __init__(self):
-        super().__init__()
-        self.target = (10, 15)
-        self.tolerance = 2
-
-    def get_odor(self, x, y):
-        if not isinstance(x, np.ndarray):
-            x = np.array([x])
-            y = np.array([y])
-
-        odor = - 0.1 * ((x - self.target[0]) ** 2 + (y - self.target[1]) ** 2) + 100
-
-        # odor = (y + 10) / (1 + 0.5 * x**2)
-        # # odor = (y + 10)
-        # odor[odor < 0] = 0
-        # odor[y > self.dist] = 0
-
-        return odor / 10
-
-    # TODO: consolidate rewards
-    def get_reward(self, x, y):
-        is_done = np.all(np.isclose(self.target, (x, y), atol=self.tolerance))
-        # return self.get_odor(x, y), bool(is_done)
-        return None, bool(is_done)
-
-
-# TODO: abstract away and experiment with more complex
-#       trail geometries / reward systems
 # <codecell>
 if __name__ == '__main__':
     from stable_baselines3.common.vec_env import DummyVecEnv
 
-    def env_fn(): return TrailEnv(StraightTrail(), discrete=False)
+    def env_fn(): return TrailEnv(StraightTrail(), discrete=global_discrete)
 
     env = DummyVecEnv([env_fn for _ in range(8)])
-    eval_env = TrailEnv(StraightTrail(), discrete=False)
+    eval_env = TrailEnv(StraightTrail(), discrete=global_discrete)
 
     # Discrete (untuned)
     # model = PPO("CnnPolicy", env, verbose=1,
@@ -366,14 +316,13 @@ if __name__ == '__main__':
     exit()
 
 # <codecell>
-env = TrailEnv(StraightTrail())
-model = PPO.load('trail_model')
+# env = TrailEnv(StraightTrail())
+# model = PPO.load('trail_model')
 
-env.play_anim(model)
+# env.play_anim(model)
 
 # <codecell>
-env = TrailEnv(StraightTrail(), discrete=False)
-# model = TD3.load('trail_model')
+env = TrailEnv(StraightTrail(), discrete=global_discrete)
 model = PPO.load('trail_model')
 
 obs = env.reset()
@@ -392,7 +341,9 @@ for _ in range(20):
     if is_done:
         break
 
-print(env.agent.odor_history)  # TODO: insufficient gradient in odor history
+# TODO: test for longer and longer trails, especially where
+# odor signals become saturated
+print(env.agent.odor_history)
 
 # <codecell>
 env = TrailEnv()
@@ -441,6 +392,5 @@ print('ODOR', agent.odor_history)
 # %%
 trail_map = StraightTrail()
 trail_map.plot()
-plt.show()
 
 # %%

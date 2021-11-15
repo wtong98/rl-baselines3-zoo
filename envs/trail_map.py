@@ -40,8 +40,7 @@ class StraightTrail(TrailMap):
         odor = max_odor - total_dist
         odor *= 1 / (perp_dist + 1)
 
-        odor[odor < 0] = 0
-
+        odor = np.clip(odor, 0, np.inf)
         return odor / max_odor
 
     def plot(self):
