@@ -10,6 +10,7 @@ from stable_baselines3 import DDPG, TD3, PPO
 from typing import Tuple
 import imageio
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 import numpy as np
 
 import gym
@@ -71,10 +72,14 @@ class TrailEnv(gym.Env):
         if self.discrete:
             heading = (action / self.action_space.n) * 2 * np.pi
             self.agent.move_abs(heading, TrailEnv.max_speed)
+            # heading = (action / self.action_space.n) * 2 * np.pi
+            # d_heading = heading - np.pi
+            # self.agent.move(d_heading, TrailEnv.max_speed)
         else:
             heading = action[0] * np.pi
             speed = ((action[1] + 1) / 2) * TrailEnv.max_speed
             self.agent.move_abs(heading, speed)
+            # self.agent.move(heading, speed)
 
         self.agent.sniff()
 
@@ -106,20 +111,6 @@ class TrailEnv(gym.Env):
     def render(self, mode='human'):
         obs = self.agent.make_observation()
         print(obs[:, :, 0])
-
-    def play_anim(self, model, is_deterministic=False, out_path='out.mp4'):
-        obs = self.reset()
-        frames = [obs]
-
-        for _ in range(self.max_steps):
-            action, _ = model.predict(obs, deterministic=is_deterministic)
-            obs, _, is_done, _ = env.step(action)
-            frames.append(obs)
-
-            if is_done:
-                break
-
-        imageio.mimwrite(out_path, frames, fps=2)
 
 
 class TrailAgent:
@@ -161,13 +152,14 @@ class TrailAgent:
         self.odor_history.append((odor, *self.position[:]))
         return odor
 
+    # TODO: experiment with different reward strategies
     def get_reward(self) -> Tuple[float, bool]:
-        # reward, is_done = self.map.get_reward(*self.position)
-        is_done = self.map.is_done(*self.position)
-
-        # TODO: experiment with different reward strategies
         reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
 
+        if np.isclose(self.map.sample(*self.position), 0, atol=1e-4):
+            reward = -5
+
+        is_done = self.map.is_done(*self.position)
         if is_done:
             reward = 100
 
@@ -272,17 +264,21 @@ class TrailContinuousEnv(TrailEnv):
         super().__init__(trail_map=trail_map, discrete=False)
 
 
+# TODO: make 8-branch trail and submit job
 global_discrete = True
 trail_class = RandomStraightTrail
+trail_args = {'narrow_factor': 2}
 
 # <codecell>
 if __name__ == '__main__':
     from stable_baselines3.common.vec_env import DummyVecEnv
 
-    def env_fn(): return TrailEnv(trail_class(), discrete=global_discrete)
+    def env_fn(): return TrailEnv(trail_class(**trail_args), discrete=global_discrete)
 
-    env = DummyVecEnv([env_fn for _ in range(8)])
-    eval_env = TrailEnv(trail_class(), discrete=global_discrete)
+    # def env_fn_static(end): return TrailEnv(StraightTrail(end=end), discrete=global_discrete)
+
+    env = DummyVecEnv([env_fn for _ in range(16)])
+    eval_env = TrailEnv(trail_class(is_eval=True, **trail_args), discrete=global_discrete)
 
     model = PPO("CnnPolicy", env, verbose=1,
                 n_steps=64,
@@ -305,30 +301,27 @@ if __name__ == '__main__':
     exit()
 
 # <codecell>
-env = TrailEnv(trail_class())
+env = TrailEnv(trail_class(**trail_args))
 model = PPO.load('trail_model')
 
 env.play_anim(model)
 
 # <codecell>
-env = TrailEnv(trail_class(), discrete=global_discrete)
+# env = TrailEnv(trail_class(**trail_args), discrete=global_discrete)
+env = TrailEnv(StraightTrail(end=np.array([-15, 15]), narrow_factor=2), discrete=global_discrete)
 model = PPO.load('trail_model')
 
 obs = env.reset()
 plt.imshow(obs)
 for _ in range(20):
-    # action, _ = model.predict(obs)
     action, _ = model.predict(obs, deterministic=True)
     print(action)
-    obs, _, is_done, _ = env.step(action)
+    obs, reward, is_done, _ = env.step(action)
     print(is_done)
-
-    # plt.imshow(obs[..., 1])
+    print('last reward:', reward)
 
     plt.imshow(obs)
     plt.show()
-
-    print('max odor', np.max(obs[:, :, 1]))
 
     if is_done:
         break
@@ -338,6 +331,27 @@ env.map.plot()
 # TODO: test for longer and longer trails, especially where
 # odor signals become saturated
 print(env.agent.odor_history)
+
+# <codecell>
+# env = TrailEnv(trail_class(), discrete=global_discrete)
+env = TrailEnv(StraightTrail(end=np.array([0, -10])), discrete=global_discrete)
+model = PPO.load('trail_model')
+
+obs = env.reset()
+frames = [obs]
+plt.imshow(obs)
+for _ in range(20):
+    action, _ = model.predict(obs, deterministic=True)
+    obs, _, is_done, _ = env.step(action)
+    frames.append(obs)
+
+    if is_done:
+        print('reach end')
+        break
+
+ani = FuncAnimation(plt.gcf(), lambda f: plt.imshow(f), frames=frames)
+ani.save('out.gif')
+
 
 # <codecell>
 env = TrailEnv()
@@ -380,13 +394,39 @@ obs = agent.make_observation()
 
 img_corr = np.flip(obs.T, axis=0)
 # print(img_corr)
-plt.imshow(obs[..., 1])
+plt.imshow(obs)
 print('ODOR', agent.odor_history)
 
+# <codecell>
+env = TrailEnv(StraightTrail(end=np.array([15, 15])), discrete=True)
+env.step(4)
+env.step(4)
+env.step(2)
+env.step(4)
+env.step(4)
+
+obs, _, _, _ = env.step(4)
+print('heading:', env.agent.heading)
+
+print(env.agent.position_history)
+
+plt.imshow(obs)
+
+# <codecell>
+env = TrailEnv(StraightTrail(end=np.array([15, 15])), discrete=False)
+env.step([0, 3])
+# env.step([np.pi / 4, 3])
+
+obs, _, _, _ = env.step([np.pi / 6, 3])
+print('heading:', env.agent.heading)
+
+print(env.agent.position_history)
+
+plt.imshow(obs)
 # %%
 # TODO: figure out trial generalization strategy
 # TODO: try with just four (two) cardinal directions?
-trail_map = trail_class()
+trail_map = trail_class(is_eval=True, narrow_factor=3)
 trail_map.plot()
 
 # %%

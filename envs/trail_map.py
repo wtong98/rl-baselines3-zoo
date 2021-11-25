@@ -32,9 +32,10 @@ class TrailMap:
 
 
 class StraightTrail(TrailMap):
-    def __init__(self, end=None):
+    def __init__(self, end=None, narrow_factor=1):
         super().__init__()
-        self.end = end if end != None else np.array([10, 15])
+        self.end = end if type(end) != type(None) else np.array([10, 15])
+        self.narrow_factor = narrow_factor
 
     def sample(self, x, y):
         eps = 1e-8
@@ -42,12 +43,21 @@ class StraightTrail(TrailMap):
         perp_dist = np.abs((self.end[0] - self.start[0]) * (self.start[1] - y) - (self.start[0] - x) *
                            (self.end[1] - self.start[1])) / np.sqrt((self.start[0] - self.end[0]) ** 2 + (self.start[1] - self.end[1])**2 + eps)
 
-        max_odor = np.sqrt(np.sum((self.end - self.start) ** 2)) + 1
-        odor = max_odor - total_dist
-        odor *= 1 / (perp_dist + 1)
+        # max_odor = np.sqrt(np.sum((self.end - self.start) ** 2)) + 1
+        # odor = max_odor - total_dist
+        # odor *= 1 / (perp_dist + 1)
+        odor = 1 / (perp_dist + 1) ** self.narrow_factor
+        max_dist = np.sqrt(np.sum((self.end - self.start) ** 2))
+        if np.isscalar(total_dist):
+            if total_dist > max_dist:
+                odor *= 1 / (total_dist - max_dist + 1)
+        else:
+            adjust = 1 / (np.clip(total_dist - max_dist, 0, np.inf) + 1)
+            odor *= adjust
 
-        odor = np.clip(odor, 0, np.inf)
-        return odor / max_odor
+        # odor = np.clip(odor, 0, np.inf)
+        # return odor / max_odor
+        return odor
 
     def plot(self):
         x = np.linspace(-20, 20, 100)
@@ -63,8 +73,11 @@ class StraightTrail(TrailMap):
 
 
 class RandomStraightTrail(StraightTrail):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, is_eval=False, **kwargs):
+        super().__init__(**kwargs)
+        self.eval = is_eval
+        self.next_choice = -1
+
         self.end = self._rand_coords()
         self.tol = 4
 
@@ -72,7 +85,14 @@ class RandomStraightTrail(StraightTrail):
         # new_end = np.random.randint(10, 16, 2) * np.random.choice([-1, 1], 2)
         # new_end = np.random.randint(15, 16, 2) * np.random.choice([-1, 1], 1)
 
-        branch = np.random.choice([-1, 0, 1])
+        if self.eval:
+            branch = self.next_choice
+            self.next_choice += 1
+            if self.next_choice >= 2:
+                self.next_choice = -1
+        else:
+            branch = np.random.choice([-1, 0, 1])
+
         x_coord = branch * 15
         new_end = np.array([x_coord, 15])
 
@@ -123,7 +143,7 @@ class RandomRoundTrail(RoundTrail):
         self.end = self._rand_coords()
 
 
-class TrainingTrailSet(TrailMap):  # TODO: convert to give trails that are underperforming < -- STOPPED HERE
+class TrainingTrailSet(TrailMap):  # TODO: test
     def __init__(self, trails: List[TrailMap]):
         super().__init__()
         self.trails = trails
