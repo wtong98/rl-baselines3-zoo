@@ -76,25 +76,22 @@ class RandomStraightTrail(StraightTrail):
     def __init__(self, is_eval=False, **kwargs):
         super().__init__(**kwargs)
         self.eval = is_eval
-        self.next_choice = -1
+        self.next_choice = 0
 
         self.end = self._rand_coords()
         self.tol = 4
 
     def _rand_coords(self):
-        # new_end = np.random.randint(10, 16, 2) * np.random.choice([-1, 1], 2)
-        # new_end = np.random.randint(15, 16, 2) * np.random.choice([-1, 1], 1)
+        branches = [(i, j) for i in [-1, 0, 1] for j in [-1, 0, 1] if (i, j) != (0, 0)]
 
         if self.eval:
-            branch = self.next_choice
-            self.next_choice += 1
-            if self.next_choice >= 2:
-                self.next_choice = -1
+            idx = self.next_choice
+            self.next_choice = (self.next_choice + 1) % len(branches)
         else:
-            branch = np.random.choice([-1, 0, 1])
+            idx = np.random.choice(len(branches))
 
-        x_coord = branch * 15
-        new_end = np.array([x_coord, 15])
+        x_fac, y_fac = branches[idx]
+        new_end = np.array([x_fac * 15, y_fac * 15])
 
         # print(new_end)
         return new_end

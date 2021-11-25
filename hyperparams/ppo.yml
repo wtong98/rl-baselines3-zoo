@@ -1,25 +1,32 @@
 TrailTracker-v0:
   policy: 'CnnPolicy'
-  n_envs: 8
-  n_steps: 512
+  n_envs: 16
+  n_steps: 64
   n_epochs: 20
-  batch_size: 128
-  n_timesteps: !!float 1e5
-  learning_rate: 0.0001
-  ent_coef: 0.01
-  gamma: 0.98
+  batch_size: 512
+  n_timesteps: 150000
+  learning_rate: 0.00025
+  ent_coef: 0.0001
+  gamma: 0.995
+  gae_lambda: 1
+  clip_range: 0.1
+  max_grad_norm: 2
+  vf_coef: 0.715
 
-# TODO: needs mad tuning
 TrailTrackerCont-v0:
   policy: 'CnnPolicy'
-  n_envs: 8
-  n_steps: 512
+  n_envs: 16
+  n_steps: 64
   n_epochs: 20
-  batch_size: 128
-  n_timesteps: !!float 1e5
-  learning_rate: 0.0001
-  ent_coef: 0.01
-  gamma: 0.98
+  batch_size: 512
+  n_timesteps: 150000
+  learning_rate: 0.00025
+  ent_coef: 0.0001
+  gamma: 0.995
+  gae_lambda: 1
+  clip_range: 0.1
+  max_grad_norm: 2
+  vf_coef: 0.715
 
 
 atari:

@@ -18,7 +18,7 @@ from gym import spaces
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 
-from trail_map import *
+from .trail_map import *
 
 
 class TrailEnv(gym.Env):
@@ -34,7 +34,7 @@ class TrailEnv(gym.Env):
         self.discrete = discrete
 
         if trail_map == None:
-            trail_map = StraightTrail()
+            trail_map = RandomStraightTrail(narrow_factor=2)
 
         """
         The action space is the tuple (heading, velocity).
@@ -264,7 +264,7 @@ class TrailContinuousEnv(TrailEnv):
         super().__init__(trail_map=trail_map, discrete=False)
 
 
-# TODO: make 8-branch trail and submit job
+'''
 global_discrete = True
 trail_class = RandomStraightTrail
 trail_args = {'narrow_factor': 2}
@@ -308,8 +308,11 @@ env.play_anim(model)
 
 # <codecell>
 # env = TrailEnv(trail_class(**trail_args), discrete=global_discrete)
-env = TrailEnv(StraightTrail(end=np.array([-15, 15]), narrow_factor=2), discrete=global_discrete)
-model = PPO.load('trail_model')
+trail_map = StraightTrail(end=np.array([15, 15]), narrow_factor=2)
+trail_map.tol = 4
+env = TrailEnv(trail_map, discrete=global_discrete)
+# model = PPO.load('trail_model')
+model = PPO.load('/home/grandpaa/workspace/trails/zoo/logs/ppo/TrailTracker-v0_9/best_model.zip')
 
 obs = env.reset()
 plt.imshow(obs)
@@ -424,9 +427,8 @@ print(env.agent.position_history)
 
 plt.imshow(obs)
 # %%
-# TODO: figure out trial generalization strategy
-# TODO: try with just four (two) cardinal directions?
-trail_map = trail_class(is_eval=True, narrow_factor=3)
+trail_map = trail_class(is_eval=True, narrow_factor=2)
 trail_map.plot()
 
 # %%
+'''
