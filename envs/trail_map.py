@@ -43,20 +43,21 @@ class StraightTrail(TrailMap):
         perp_dist = np.abs((self.end[0] - self.start[0]) * (self.start[1] - y) - (self.start[0] - x) *
                            (self.end[1] - self.start[1])) / np.sqrt((self.start[0] - self.end[0]) ** 2 + (self.start[1] - self.end[1])**2 + eps)
 
-        # max_odor = np.sqrt(np.sum((self.end - self.start) ** 2)) + 1
-        # odor = max_odor - total_dist
-        # odor *= 1 / (perp_dist + 1)
-        odor = 1 / (perp_dist + 1) ** self.narrow_factor
-        max_dist = np.sqrt(np.sum((self.end - self.start) ** 2))
-        if np.isscalar(total_dist):
-            if total_dist > max_dist:
-                odor *= 1 / (total_dist - max_dist + 1)
-        else:
-            adjust = 1 / (np.clip(total_dist - max_dist, 0, np.inf) + 1)
-            odor *= adjust
+        max_odor = np.sqrt(np.sum((self.end - self.start) ** 2)) + 1
+        odor = max_odor - total_dist
+        odor *= 1 / (perp_dist + 1) ** self.narrow_factor
 
-        # odor = np.clip(odor, 0, np.inf)
-        # return odor / max_odor
+        # odor = 1 / (perp_dist + 1) ** self.narrow_factor
+        # max_dist = np.sqrt(np.sum((self.end - self.start) ** 2))
+        # if np.isscalar(total_dist):
+        #     if total_dist > max_dist:
+        #         odor *= 1 / (total_dist - max_dist + 1) ** self.narrow_factor
+        # else:
+        #     adjust = 1 / (np.clip(total_dist - max_dist, 0, np.inf) + 1) ** self.narrow_factor
+        #     odor *= adjust
+
+        odor = np.clip(odor, 0, np.inf)
+        return odor / max_odor
         return odor
 
     def plot(self):
@@ -163,7 +164,7 @@ class TrainingTrailSet(TrailMap):  # TODO: test
 
 # TODO: try training on straight trail of increasing lengths
 if __name__ == '__main__':
-    trail = StraightTrail()
+    trail = StraightTrail(narrow_factor=2)
     trail.plot()
 
 # %%

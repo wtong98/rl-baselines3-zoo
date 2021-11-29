@@ -18,7 +18,7 @@ from gym import spaces
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 
-from .trail_map import *
+from trail_map import *
 
 
 class TrailEnv(gym.Env):
@@ -157,11 +157,11 @@ class TrailAgent:
         reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
 
         if np.isclose(self.map.sample(*self.position), 0, atol=1e-4):
-            reward = -5
+            reward = -2
 
         is_done = self.map.is_done(*self.position)
         if is_done:
-            reward = 100
+            reward = 200
 
         return reward, is_done
 
@@ -264,7 +264,6 @@ class TrailContinuousEnv(TrailEnv):
         super().__init__(trail_map=trail_map, discrete=False)
 
 
-'''
 global_discrete = True
 trail_class = RandomStraightTrail
 trail_args = {'narrow_factor': 2}
@@ -275,36 +274,60 @@ if __name__ == '__main__':
 
     def env_fn(): return TrailEnv(trail_class(**trail_args), discrete=global_discrete)
 
-    # def env_fn_static(end): return TrailEnv(StraightTrail(end=end), discrete=global_discrete)
+    def env_fn_static(end): return TrailEnv(StraightTrail(end=end), discrete=global_discrete)
+    env = DummyVecEnv([
+        lambda: env_fn_static(np.array([15, 15])),
+        lambda: env_fn_static(np.array([15, 0])),
+        lambda: env_fn_static(np.array([15, -15])),
+        lambda: env_fn_static(np.array([0, 15])),
+        lambda: env_fn_static(np.array([0, -15])),
+        lambda: env_fn_static(np.array([-15, 15])),
+        lambda: env_fn_static(np.array([-15, 0])),
+        lambda: env_fn_static(np.array([-15, -15]))
+    ])
 
-    env = DummyVecEnv([env_fn for _ in range(16)])
+    # env = DummyVecEnv([env_fn for _ in range(16)])
     eval_env = TrailEnv(trail_class(is_eval=True, **trail_args), discrete=global_discrete)
 
     model = PPO("CnnPolicy", env, verbose=1,
-                n_steps=64,
-                batch_size=512,
+                n_steps=256,
+                batch_size=128,
                 ent_coef=0.0001,
                 gamma=0.995,
                 gae_lambda=1.0,
                 use_sde=False,
                 clip_range=0.1,
                 max_grad_norm=2,
-                vf_coef=0.715,
-                n_epochs=20,
-                learning_rate=0.00025,
+                vf_coef=0.5,
+                n_epochs=5,
+                learning_rate=0.00015,
                 tensorboard_log='log',
                 )
+    # model = PPO("CnnPolicy", env, verbose=1,
+    #             n_steps=512,
+    #             batch_size=256,
+    #             ent_coef=0.0001,
+    #             gamma=0.995,
+    #             gae_lambda=0.8,
+    #             use_sde=False,
+    #             clip_range=0.1,
+    #             max_grad_norm=5,
+    #             vf_coef=0.26,
+    #             n_epochs=5,
+    #             learning_rate=0.00001,
+    #             tensorboard_log='log',
+    #             )
 
-    model.learn(total_timesteps=150000, log_interval=5,
-                eval_env=eval_env, eval_freq=512)
+    model.learn(total_timesteps=500000, log_interval=5,
+                eval_env=eval_env, eval_freq=1024)
     model.save('trail_model')
     exit()
 
 # <codecell>
-env = TrailEnv(trail_class(**trail_args))
-model = PPO.load('trail_model')
+# env = TrailEnv(trail_class(**trail_args))
+# model = PPO.load('trail_model')
 
-env.play_anim(model)
+# env.play_anim(model)
 
 # <codecell>
 # env = TrailEnv(trail_class(**trail_args), discrete=global_discrete)
@@ -312,7 +335,7 @@ trail_map = StraightTrail(end=np.array([15, 15]), narrow_factor=2)
 trail_map.tol = 4
 env = TrailEnv(trail_map, discrete=global_discrete)
 # model = PPO.load('trail_model')
-model = PPO.load('/home/grandpaa/workspace/trails/zoo/logs/ppo/TrailTracker-v0_9/best_model.zip')
+model = PPO.load('trail_model.zip')
 
 obs = env.reset()
 plt.imshow(obs)
@@ -431,4 +454,3 @@ trail_map = trail_class(is_eval=True, narrow_factor=2)
 trail_map.plot()
 
 # %%
-'''
