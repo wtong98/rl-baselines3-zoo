@@ -161,7 +161,7 @@ class TrailAgent:
 
         is_done = self.map.is_done(*self.position)
         if is_done:
-            reward = 200
+            reward = 100
 
         return reward, is_done
 
@@ -210,6 +210,12 @@ class TrailAgent:
             for i in range(steps):
                 x_coord = np.round(point[0] + i * dx).astype(int)
                 y_coord = np.round(point[1] + i * dy).astype(int)
+
+                # for x_ in range(x_coord - 1, x_coord + 2):
+                #     for y_ in range(y_coord - 1, y_coord + 2):
+                #         if 0 <= x_ < self.view_distance * 2 \
+                #                 and 0 <= y_ < self.view_distance * 2:
+                #             pos_img[x_, y_] = 255
                 if 0 <= x_coord < self.view_distance * 2 \
                         and 0 <= y_coord < self.view_distance * 2:
                     pos_img[x_coord, y_coord] = 255
@@ -238,8 +244,8 @@ class TrailAgent:
         for odor, pos in zip(past_odor, ego_pos):
             x_pos = int(pos[0])
             y_pos = int(pos[1])
-            for x_ in range(x_pos - 1, x_pos + 1):
-                for y_ in range(y_pos - 1, y_pos + 1):
+            for x_ in range(x_pos - 1, x_pos + 2):
+                for y_ in range(y_pos - 1, y_pos + 2):
                     x_coord, y_coord = x_, y_
                     # x_coord, y_coord = pos
                     if 0 <= x_coord < self.view_distance * 2 - 1 \
@@ -266,7 +272,7 @@ class TrailContinuousEnv(TrailEnv):
 
 global_discrete = True
 trail_class = RandomStraightTrail
-trail_args = {'narrow_factor': 2}
+trail_args = {'narrow_factor': 1}
 
 # <codecell>
 if __name__ == '__main__':
@@ -275,51 +281,68 @@ if __name__ == '__main__':
     def env_fn(): return TrailEnv(trail_class(**trail_args), discrete=global_discrete)
 
     def env_fn_static(end): return TrailEnv(StraightTrail(end=end), discrete=global_discrete)
-    env = DummyVecEnv([
-        lambda: env_fn_static(np.array([15, 15])),
-        lambda: env_fn_static(np.array([15, 0])),
-        lambda: env_fn_static(np.array([15, -15])),
-        lambda: env_fn_static(np.array([0, 15])),
-        lambda: env_fn_static(np.array([0, -15])),
-        lambda: env_fn_static(np.array([-15, 15])),
-        lambda: env_fn_static(np.array([-15, 0])),
-        lambda: env_fn_static(np.array([-15, -15]))
-    ])
+    # env = DummyVecEnv([
+    #     lambda: env_fn_static(np.array([15, 15])),
+    #     lambda: env_fn_static(np.array([15, 0])),
+    #     lambda: env_fn_static(np.array([15, -15])),
+    #     lambda: env_fn_static(np.array([0, 15])),
+    #     lambda: env_fn_static(np.array([0, -15])),
+    #     lambda: env_fn_static(np.array([-15, 15])),
+    #     lambda: env_fn_static(np.array([-15, 0])),
+    #     lambda: env_fn_static(np.array([-15, -15]))
+    # ]
 
-    # env = DummyVecEnv([env_fn for _ in range(16)])
+    env = DummyVecEnv([env_fn for _ in range(16)])
     eval_env = TrailEnv(trail_class(is_eval=True, **trail_args), discrete=global_discrete)
 
+    # Golden params
+    # model = PPO("CnnPolicy", env, verbose=1,
+    #             n_steps=64,
+    #             batch_size=512,
+    #             ent_coef=0.0001,
+    #             gamma=0.995,
+    #             gae_lambda=1.0,
+    #             use_sde=False,
+    #             clip_range=0.1,
+    #             max_grad_norm=2,
+    #             vf_coef=0.715,
+    #             n_epochs=20,
+    #             learning_rate=0.00025,
+    #             tensorboard_log='log',
+    #             )
+
     model = PPO("CnnPolicy", env, verbose=1,
-                n_steps=256,
-                batch_size=128,
+                n_steps=128,
+                batch_size=512,
                 ent_coef=0.0001,
                 gamma=0.995,
                 gae_lambda=1.0,
                 use_sde=False,
                 clip_range=0.1,
                 max_grad_norm=2,
-                vf_coef=0.5,
-                n_epochs=5,
+                vf_coef=0.715,
+                n_epochs=15,
                 learning_rate=0.00015,
                 tensorboard_log='log',
                 )
+
     # model = PPO("CnnPolicy", env, verbose=1,
-    #             n_steps=512,
-    #             batch_size=256,
+    #             n_steps=256,
+    #             batch_size=128,
     #             ent_coef=0.0001,
     #             gamma=0.995,
-    #             gae_lambda=0.8,
+    #             gae_lambda=1.0,
     #             use_sde=False,
     #             clip_range=0.1,
-    #             max_grad_norm=5,
-    #             vf_coef=0.26,
+    #             max_grad_norm=2,
+    #             vf_coef=0.5,
     #             n_epochs=5,
-    #             learning_rate=0.00001,
+    #             learning_rate=0.00015,
     #             tensorboard_log='log',
     #             )
 
-    model.learn(total_timesteps=500000, log_interval=5,
-                eval_env=eval_env, eval_freq=1024)
+    model.learn(total_timesteps=300000, log_interval=5,
+                eval_env=eval_env, eval_freq=512)
     model.save('trail_model')
     exit()
 
@@ -331,7 +354,7 @@ if __name__ == '__main__':
 
 # <codecell>
 # env = TrailEnv(trail_class(**trail_args), discrete=global_discrete)
-trail_map = StraightTrail(end=np.array([15, 15]), narrow_factor=2)
+trail_map = StraightTrail(end=np.array([-15, 0]), narrow_factor=3)
 trail_map.tol = 4
 env = TrailEnv(trail_map, discrete=global_discrete)
 # model = PPO.load('trail_model')
@@ -360,7 +383,7 @@ print(env.agent.odor_history)
 
 # <codecell>
 # env = TrailEnv(trail_class(), discrete=global_discrete)
-env = TrailEnv(StraightTrail(end=np.array([0, -10])), discrete=global_discrete)
+env = TrailEnv(StraightTrail(end=np.array([-15, 0]), narrow_factor=3), discrete=global_discrete)
 model = PPO.load('trail_model')
 
 obs = env.reset()

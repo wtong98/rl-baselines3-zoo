@@ -83,7 +83,8 @@ class RandomStraightTrail(StraightTrail):
         self.tol = 4
 
     def _rand_coords(self):
-        branches = [(i, j) for i in [-1, 0, 1] for j in [-1, 0, 1] if (i, j) != (0, 0)]
+        # branches = [(i, j) for i in [-1, 0, 1] for j in [-1, 0, 1] if (i, j) != (0, 0)]
+        branches = [(-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0)]
 
         if self.eval:
             idx = self.next_choice
