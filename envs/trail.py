@@ -346,6 +346,7 @@ if __name__ == '__main__':
     model.save('trail_model')
     exit()
 
+'''
 # <codecell>
 # env = TrailEnv(trail_class(**trail_args))
 # model = PPO.load('trail_model')
@@ -477,3 +478,5 @@ trail_map = trail_class(is_eval=True, narrow_factor=2)
 trail_map.plot()
 
 # %%
+
+'''
