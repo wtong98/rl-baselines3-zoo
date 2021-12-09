@@ -105,6 +105,12 @@ for _ in range(20):
 
 env.map.plot()
 
+# <codecell>
+# MAKE OBS PLOT
+plt.imshow(obs)
+plt.title('Example observation')
+plt.savefig('fig/example.png')
+
 # %% GRAD CAM VIZ
 model = PPO.load('trained/branch_3.zip')
 pi = model.policy
