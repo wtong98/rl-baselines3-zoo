@@ -60,14 +60,18 @@ class StraightTrail(TrailMap):
         return odor / max_odor
         return odor
 
-    def plot(self):
+    def plot(self, ax=None):
         x = np.linspace(-20, 20, 100)
         y = np.linspace(-20, 20, 100)
         xx, yy = np.meshgrid(x, y)
 
         odors = self.sample(xx, yy)
-        plt.contourf(x, y, odors)
-        plt.colorbar()
+
+        if ax:
+            return ax.contourf(x, y, odors)
+        else:
+            plt.contourf(x, y, odors)
+            plt.colorbar()
 
     def reset(self):
         pass
