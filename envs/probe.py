@@ -20,16 +20,16 @@ trail_args = {'narrow_factor': 1}
 # <codecell>
 # RUNNING AGENT ON TRAILS
 
-trail_map = StraightTrail(end=np.array([0, 15]), narrow_factor=3)
+trail_map = StraightTrail(end=np.array([15, -15]), narrow_factor=2)
 trail_map.tol = 4
 env = TrailEnv(trail_map, discrete=global_discrete)
 
-# model = PPO.load('trail_model.zip')
-model = PPO.load('trained/branch_3.zip')
+model = PPO.load('trail_model.zip')
+# model = PPO.load('trained/branch_3.zip')
 
 obs = env.reset()
 plt.imshow(obs)
-for _ in range(20):
+for _ in range(30):
     action, _ = model.predict(obs, deterministic=True)
     obs, reward, is_done, _ = env.step(action)
 
@@ -56,6 +56,7 @@ Relevant NN's:
 - action_net
 - value_net
 '''
+model.policy.to('cpu')
 
 pi = model.policy
 all_actions = torch.arange(model.action_space.n)
@@ -112,7 +113,8 @@ plt.title('Example observation')
 plt.savefig('fig/example.png')
 
 # %% GRAD CAM VIZ
-model = PPO.load('trained/branch_3.zip')
+model = PPO.load('trail_model.zip')
+model.policy.to('cpu')
 pi = model.policy
 all_actions = torch.arange(model.action_space.n)
 thetas = - np.arange(8) / 8 * 2 * np.pi + np.pi / 2
@@ -146,7 +148,7 @@ def plot_probs(obs, ax):
     return value
 
 
-trail_map = StraightTrail(end=np.array([15, 15]), narrow_factor=2)
+trail_map = StraightTrail(end=np.array([-15, 0]), narrow_factor=2)
 trail_map.tol = 4
 env = TrailEnv(trail_map, discrete=global_discrete)
 

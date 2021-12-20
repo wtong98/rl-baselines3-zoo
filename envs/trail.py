@@ -8,10 +8,10 @@ author: William Tong (wtong@g.harvard.edu)
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3 import DDPG, TD3, PPO
 from typing import Tuple
-import imageio
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import numpy as np
+from skimage.transform import rescale
 
 import gym
 from gym import spaces
@@ -26,9 +26,10 @@ class TrailEnv(gym.Env):
     heading_bound = np.pi
     max_speed = 3
     view_distance = 25
-    max_steps = 20
+    max_steps = 30
+    observation_scale = 3
 
-    def __init__(self, trail_map=None, discrete=True):
+    def __init__(self, trail_map=None, discrete=True, treadmill=False):
         super().__init__()
 
         self.discrete = discrete
@@ -45,6 +46,9 @@ class TrailEnv(gym.Env):
 
         if self.discrete:
             self.action_space = spaces.Discrete(8)
+            if treadmill:
+                self.action_space = spaces.Discrete(2)
+
         else:
             self.action_space = spaces.Box(low=-1, high=1, shape=(2,))
 
@@ -56,11 +60,11 @@ class TrailEnv(gym.Env):
             The second channel represents the agent's odor history
         """
         self.observation_space = spaces.Box(low=0, high=255,
-                                            shape=(2 * TrailEnv.view_distance, 2 * TrailEnv.view_distance, 3),
+                                            shape=(2 * TrailEnv.view_distance * TrailEnv.observation_scale, 2 * TrailEnv.view_distance * TrailEnv.observation_scale, 3),
                                             dtype=np.uint8)
 
         self.map = trail_map
-        self.agent = TrailAgent(self.map, TrailEnv.view_distance)
+        self.agent = TrailAgent(self.map, TrailEnv.view_distance, scale=TrailEnv.observation_scale)
         self.curr_step = 0
 
     def step(self, action):
@@ -104,7 +108,7 @@ class TrailEnv(gym.Env):
     def reset(self):
         self.curr_step = 0
         self.map.reset()
-        self.agent = TrailAgent(self.map, TrailEnv.view_distance)
+        self.agent = TrailAgent(self.map, TrailEnv.view_distance, scale=TrailEnv.observation_scale)
         obs = self.agent.make_observation()
         return obs
 
@@ -114,11 +118,12 @@ class TrailEnv(gym.Env):
 
 
 class TrailAgent:
-    def __init__(self, trail_map, view_distance):
+    def __init__(self, trail_map, view_distance, scale=1):
         self.position = [0, 0]
         self.heading = 0
         self.map = trail_map
         self.view_distance = view_distance
+        self.observation_scale = scale
 
         self.position_history = [[0, 0]]
         self.odor_history = []
@@ -169,18 +174,8 @@ class TrailAgent:
         pos_obs = self.make_pos_observation()
         odor_obs = self.make_odor_observation()
 
-        self_obs = np.zeros((2 * self.view_distance, 2 * self.view_distance))
-        # x = int(np.round(self.position[0] + self.view_distance))
-        # y = int(np.round(self.position[1] + self.view_distance))
-
-        # if 0 <= x < self.view_distance * 2 \
-        #         and 0 <= y < self.view_distance * 2:
-        #     self_obs[x, y] = 255
-
-        # self_obs = np.flip(self_obs.T, axis=0)
-
+        self_obs = np.zeros((2 * self.view_distance * self.observation_scale, 2 * self.view_distance * self.observation_scale))
         total_obs = np.stack((pos_obs, odor_obs, self_obs), axis=-1)
-        # total_obs = np.stack((pos_obs, odor_obs), axis=-1)
         return total_obs
 
     def make_pos_observation(self):
@@ -221,7 +216,8 @@ class TrailAgent:
                     pos_img[x_coord, y_coord] = 255
 
         pos_img = np.flip(pos_img.T, axis=0)
-        return pos_img.astype(np.uint8)
+        pos_img_scale = rescale(pos_img, self.observation_scale)
+        return pos_img_scale.astype(np.uint8)
 
     def make_odor_observation(self):
         odor_img = np.zeros((2 * self.view_distance, 2 * self.view_distance))
@@ -256,7 +252,8 @@ class TrailAgent:
                         odor_img[x, y] = odor * 255
 
         odor_img = np.flip(odor_img.T, axis=0)
-        return odor_img.astype(np.uint8)
+        odor_img_scale = rescale(odor_img, self.observation_scale)
+        return odor_img_scale.astype(np.uint8)
 
     def render(self):
         self.map.plot()
@@ -264,19 +261,20 @@ class TrailAgent:
         plt.show()
 
 
+# TODO: set up tuning run with continuous dynamics
 class TrailContinuousEnv(TrailEnv):
 
     def __init__(self, trail_map=None):
         super().__init__(trail_map=trail_map, discrete=False)
 
 
-global_discrete = True
+global_discrete = False
 trail_class = RandomStraightTrail
 trail_args = {'narrow_factor': 1}
 
 # <codecell>
 if __name__ == '__main__':
-    from stable_baselines3.common.vec_env import DummyVecEnv
+    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
     def env_fn(): return TrailEnv(trail_class(**trail_args), discrete=global_discrete)
 
@@ -293,6 +291,7 @@ if __name__ == '__main__':
     # ]
 
     env = DummyVecEnv([env_fn for _ in range(16)])
+    # env = SubprocVecEnv([env_fn for _ in range(16)])
     eval_env = TrailEnv(trail_class(is_eval=True, **trail_args), discrete=global_discrete)
 
     # Golden params
@@ -312,7 +311,7 @@ if __name__ == '__main__':
     #             )
 
     model = PPO("CnnPolicy", env, verbose=1,
-                n_steps=128,
+                n_steps=512,
                 batch_size=512,
                 ent_coef=0.0001,
                 gamma=0.995,
@@ -321,7 +320,7 @@ if __name__ == '__main__':
                 clip_range=0.1,
                 max_grad_norm=2,
                 vf_coef=0.715,
-                n_epochs=15,
+                n_epochs=10,
                 learning_rate=0.00015,
                 tensorboard_log='log',
                 )
@@ -341,7 +340,7 @@ if __name__ == '__main__':
     #             tensorboard_log='log',
     #             )
 
-    model.learn(total_timesteps=300000, log_interval=5,
+    model.learn(total_timesteps=800000, log_interval=5,
                 eval_env=eval_env, eval_freq=512)
     model.save('trail_model')
     exit()
