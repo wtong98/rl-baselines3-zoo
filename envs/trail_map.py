@@ -29,6 +29,9 @@ class TrailMap:
     def is_done(self, x, y):
         is_done = np.all(np.isclose(self.end, (x, y), atol=self.tol))
         return bool(is_done)
+    
+    def is_at_checkpoint(self, x, y):
+        return False
 
 
 class StraightTrail(TrailMap):
@@ -87,8 +90,9 @@ class RandomStraightTrail(StraightTrail):
         self.tol = 4
 
     def _rand_coords(self):
-        branches = [(i, j) for i in [-1, 0, 1] for j in [-1, 0, 1] if (i, j) != (0, 0)]
+        # branches = [(i, j) for i in [-1, 0, 1] for j in [-1, 0, 1] if (i, j) != (0, 0)]
         # branches = [(-1, 0), (-1, 1), (0, 1), (1, 1), (1, 0)]
+        branches = [(-1, 1), (0, 1), (1, 1)]
 
         if self.eval:
             idx = self.next_choice
@@ -167,9 +171,130 @@ class TrainingTrailSet(TrailMap):  # TODO: test
         self.curr_trail = self._get_rand_trail()
 
 
-# TODO: try training on straight trail of increasing lengths
+class MeanderTrail(TrailMap):
+    def __init__(self, length=50, 
+                       narrow_factor=3, 
+                       range=(-np.pi / 4, np.pi / 4), 
+                       heading=None,
+                       reward_dist=15, 
+                       res=25, radius=70, diff_rate=0.05, local_len=1, is_eval=False):
+        super().__init__(start=None, end=None)
+        self.T = length
+        self.res = res
+        self.xi = radius
+        self.k = diff_rate
+        self.lamb = local_len
+
+        if heading != None:
+            self.range = (heading, heading)
+        else:
+            self.range = range
+
+        self.reward_dist = reward_dist
+        self.narrow_factor = narrow_factor
+        self.max_odor = 6 * (100 ** (1 / narrow_factor))
+
+        self.x_coords, self.y_coords, self.checkpoints = self._sample_trail()
+        self.end = np.array([self.x_coords[-1], self.y_coords[-1]])
+        
+    
+    def _sample_trail(self):
+        dt = self.lamb / self.res
+        n_samps = int(self.T / dt)
+        x, y, theta, K = np.zeros((4, n_samps))
+        D = 1 / (self.lamb * self.xi ** 2)
+        K[0] = np.sqrt(D * self.lamb) * np.random.randn()
+
+        ckpts = []
+        ckpt_len = int(self.reward_dist / dt)
+
+        for i in range(n_samps - 1):
+            if i % ckpt_len == 0 and i != 0:
+                ckpts.append((x[i], y[i]))
+
+            x[i + 1] = x[i] + dt * np.cos(theta[i])
+            y[i + 1] = y[i] + dt * np.sin(theta[i])
+
+            # heading update
+            theta[i + 1] = theta[i]  \
+                + dt * K[i] \
+                + np.sqrt(self.k * dt) * np.random.randn()
+            
+            # curvature update (Ornstein - Uhlenbeck process)
+            K[i + 1] = K[i] \
+                - dt * K[i] \
+                + np.sqrt(D * dt) * np.random.randn()
+        
+        # rotate to net heading
+        net_heading = np.random.uniform(*self.range)
+        ang = np.arctan(y[-1] / x[-1])
+        if x[-1] < 0:
+            ang += np.pi
+
+        rot = (np.pi / 2) - net_heading - ang
+        rot_mat = np.array([
+            [np.cos(rot), -np.sin(rot)],
+            [np.sin(rot), np.cos(rot)]
+        ])
+
+        points = np.stack((x, y), axis=0)
+        net_x, net_y = rot_mat @ points
+
+        ckpts = rot_mat @ np.array(ckpts).T
+        return net_x, net_y, ckpts.T
+
+    
+    def sample(self, x, y):
+        dist = np.sqrt((self.x_coords - x) ** 2 + (self.y_coords - y) ** 2)
+        raw_odor = 1 / ((dist + 1) ** self.narrow_factor)
+        return np.sum(raw_odor) / self.max_odor
+
+    
+    def plot(self, res=50, ax=None):
+        x = np.linspace(-40, 40, res)
+        y = np.linspace(-10, 50, res)
+        xx, yy = np.meshgrid(x, y)
+
+        odors = np.array([self.sample(x, y) for x, y in zip(xx.ravel(), yy.ravel())])
+        odors = odors.reshape(res, res)
+
+        ckpt_x, ckpt_y = self.checkpoints.T if len(self.checkpoints) > 0 else (0, 0)
+
+        if ax:
+            ax.plot(self.x_coords, self.y_coords, linewidth=3, color='red', alpha=0.5)
+            ax.contourf(x, y, odors)
+            return ax.scatter(ckpt_x, ckpt_y, color='red')
+        else:
+            plt.plot(self.x_coords, self.y_coords, linewidth=3, color='red', alpha=0.5)
+            plt.contourf(x, y, odors)
+            plt.scatter(ckpt_x, ckpt_y, color='red')
+            plt.colorbar()
+
+
+    def reset(self):
+        self.x_coords, self.y_coords, self.checkpoints = self._sample_trail()
+        self.end = np.array([self.x_coords[-1], self.y_coords[-1]])
+    
+
+    def is_at_checkpoint(self, x, y):
+        if len(self.checkpoints) == 0:
+            return False
+        
+        next_ckpt = self.checkpoints[0]
+        if np.all(np.isclose((x, y), next_ckpt, atol=self.tol)):
+            self.checkpoints = self.checkpoints[1:]
+            return True
+        else:
+            return False
+    
+
+    def __str__(self) -> str:
+        return f'(len={self.T}, narrow={self.narrow_factor})'
+
+
 if __name__ == '__main__':
-    trail = StraightTrail(narrow_factor=2)
+    trail = MeanderTrail(narrow_factor=3)
     trail.plot()
 
 # %%
+

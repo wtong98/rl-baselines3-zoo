@@ -3,6 +3,7 @@ Testing ground for probing a trained agent
 """
 # <codecell>
 import torch
+from matplotlib.animation import FuncAnimation
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from stable_baselines3 import PPO
@@ -13,24 +14,29 @@ from trail_map import *
 
 # <codecell>
 global_discrete = True
-trail_class = RandomStraightTrail
-trail_args = {'narrow_factor': 1}
+global_treadmill = True
+trail_class = MeanderTrail
+trail_args = {'narrow_factor': 5, 'length': 70, 'radius': 70}
 
 
 # <codecell>
 # RUNNING AGENT ON TRAILS
 
-trail_map = StraightTrail(end=np.array([15, -15]), narrow_factor=2)
-trail_map.tol = 4
-env = TrailEnv(trail_map, discrete=global_discrete)
+# trail_map = StraightTrail(end=np.array([15, 15]), narrow_factor=2)
+trail_map = trail_class(**trail_args, heading=np.pi/8)
+env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
+env.map.plot()
+plt.show()
 
-model = PPO.load('trail_model.zip')
-# model = PPO.load('trained/branch_3.zip')
+model = PPO.load('trail_model.zip', device='cpu')
+# model = PPO.load('trained/branch_9_close2.zip', device='cpu')
+
+model.policy = model.policy.to('cpu')
 
 obs = env.reset()
 plt.imshow(obs)
-for _ in range(30):
-    action, _ = model.predict(obs, deterministic=True)
+for _ in range(100):
+    action, _ = model.predict(obs, deterministic=False)
     obs, reward, is_done, _ = env.step(action)
 
     print(action)
@@ -43,9 +49,34 @@ for _ in range(30):
     if is_done:
         break
 
-env.map.plot()
+env.map.plot(ax=plt.gca())
+plt.plot(*zip(*env.agent.position_history), linewidth=2, color='black')
 
 print(env.agent.odor_history)
+
+# <codecell>
+# FUNC ANIMATION
+
+# env = TrailEnv(StraightTrail(end=np.array([-15, 0]), narrow_factor=1), discrete=global_discrete)
+# model = PPO.load('trained/branch_9_close2.zip', device='cpu')
+trail_map = trail_class(**trail_args)
+env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
+model = PPO.load('trail_model.zip', device='cpu')
+
+obs = env.reset()
+frames = [obs]
+plt.imshow(obs)
+for _ in range(100):
+    action, _ = model.predict(obs, deterministic=False)
+    obs, _, is_done, _ = env.step(action)
+    frames.append(obs)
+
+    if is_done:
+        print('reach end')
+        break
+
+ani = FuncAnimation(plt.gcf(), lambda f: plt.imshow(f), frames=frames)
+ani.save('out.gif')
 
 # <codecell>
 # VIEWING ACTOR NETWORK DECISIONS

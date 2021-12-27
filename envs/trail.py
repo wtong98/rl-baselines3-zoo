@@ -5,6 +5,8 @@ author: William Tong (wtong@g.harvard.edu)
 """
 
 # <codecell>
+from stable_baselines3.common import callbacks
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3 import DDPG, TD3, PPO
 from typing import Tuple
@@ -19,6 +21,7 @@ from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.policies import ActorCriticCnnPolicy
 
 from trail_map import *
+from schedule import *
 
 
 class TrailEnv(gym.Env):
@@ -26,14 +29,17 @@ class TrailEnv(gym.Env):
     heading_bound = np.pi
     max_speed = 3
     view_distance = 25
-    max_steps = 30
+    max_steps = 100
+    max_off_trail_steps = 10
     observation_scale = 3
 
     def __init__(self, trail_map=None, discrete=True, treadmill=False):
         super().__init__()
 
         self.discrete = discrete
+        self.treadmill = treadmill
 
+        self.next_map = None
         if trail_map == None:
             trail_map = RandomStraightTrail(narrow_factor=2)
 
@@ -46,8 +52,9 @@ class TrailEnv(gym.Env):
 
         if self.discrete:
             self.action_space = spaces.Discrete(8)
-            if treadmill:
-                self.action_space = spaces.Discrete(2)
+            if self.treadmill:
+                # self.action_space = spaces.Box(low=-1, high=1, shape=(1,))
+                self.action_space = spaces.Discrete(3)
 
         else:
             self.action_space = spaces.Box(low=-1, high=1, shape=(2,))
@@ -74,11 +81,16 @@ class TrailEnv(gym.Env):
         # self.agent.move_direct(TrailEnv.max_speed * action[0], TrailEnv.max_speed * action[1])
 
         if self.discrete:
-            heading = (action / self.action_space.n) * 2 * np.pi
-            self.agent.move_abs(heading, TrailEnv.max_speed)
-            # heading = (action / self.action_space.n) * 2 * np.pi
-            # d_heading = heading - np.pi
-            # self.agent.move(d_heading, TrailEnv.max_speed)
+            if self.treadmill:
+                d_action = action - 1
+                d_heading = d_action * np.pi / 4
+                self.agent.move(d_heading, TrailEnv.max_speed)
+            else:
+                heading = (action / self.action_space.n) * 2 * np.pi
+                self.agent.move_abs(heading, TrailEnv.max_speed)
+                # heading = (action / self.action_space.n) * 2 * np.pi
+                # d_heading = heading - np.pi
+                # self.agent.move(d_heading, TrailEnv.max_speed)
         else:
             heading = action[0] * np.pi
             speed = ((action[1] + 1) / 2) * TrailEnv.max_speed
@@ -107,7 +119,13 @@ class TrailEnv(gym.Env):
 
     def reset(self):
         self.curr_step = 0
-        self.map.reset()
+        if self.next_map != None:
+            print('SWITCHING TO MAP:', self.next_map)
+            self.map = self.next_map
+            self.next_map = None
+        else:
+            self.map.reset()
+
         self.agent = TrailAgent(self.map, TrailEnv.view_distance, scale=TrailEnv.observation_scale)
         obs = self.agent.make_observation()
         return obs
@@ -115,6 +133,9 @@ class TrailEnv(gym.Env):
     def render(self, mode='human'):
         obs = self.agent.make_observation()
         print(obs[:, :, 0])
+    
+    def queue_map(self, next_map):
+        self.next_map = next_map
 
 
 class TrailAgent:
@@ -127,6 +148,7 @@ class TrailAgent:
 
         self.position_history = [[0, 0]]
         self.odor_history = []
+        self.off_trail_step = 0
 
         self.sniff()
 
@@ -157,12 +179,22 @@ class TrailAgent:
         self.odor_history.append((odor, *self.position[:]))
         return odor
 
-    # TODO: experiment with different reward strategies
+    # TODO: optimize over reward scheme
     def get_reward(self) -> Tuple[float, bool]:
+        # TODO: remove? End may not have highest odor
         reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
+        # reward = 0
 
         if np.isclose(self.map.sample(*self.position), 0, atol=1e-4):
             reward = -2
+            self.off_trail_step += 1
+            if self.off_trail_step == TrailEnv.max_off_trail_steps:
+                return reward, True
+        else:
+            self.off_trail_step = 0
+
+        if self.map.is_at_checkpoint(*self.position):
+            reward = 20
 
         is_done = self.map.is_done(*self.position)
         if is_done:
@@ -261,92 +293,76 @@ class TrailAgent:
         plt.show()
 
 
-# TODO: set up tuning run with continuous dynamics
 class TrailContinuousEnv(TrailEnv):
 
     def __init__(self, trail_map=None):
         super().__init__(trail_map=trail_map, discrete=False)
 
 
-global_discrete = False
-trail_class = RandomStraightTrail
-trail_args = {'narrow_factor': 1}
+global_discrete = True
+global_treadmill = True
+trail_class = MeanderTrail
+trail_args = {'narrow_factor': 5, 'length': 70, 'radius': 70, 'range': (-np.pi / 3, np.pi / 3)}
 
 # <codecell>
+
+class TestCallback(BaseCallback):
+    def __init__(self):
+        super().__init__()
+        self.step_iter = 0
+
+    def _on_step(self) -> bool:
+        self.step_iter += 1
+        return True
+
+    def _on_training_end(self) -> None:
+        print('TOTAL STEPS', self.num_timesteps)
+        print('LOCAL STEPS', self.step_iter)
+
+schedule = Schedule(trail_class) \
+    .add_ckpt(40000, narrow_factor=1, length=20, radius=70, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(25000, narrow_factor=2, length=25, radius=70, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(25000, narrow_factor=3, length=35, radius=70, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(25000, narrow_factor=4, length=40, radius=70, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(25000, narrow_factor=5, length=50, radius=70, range=(-np.pi / 3, np.pi / 3)) \
+
+# schedule = Schedule(trail_class) \
+#     .add_ckpt(80000, narrow_factor=5, length=70, radius=70, range=(-np.pi / 3, np.pi / 3)) \
+
+
 if __name__ == '__main__':
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
-    def env_fn(): return TrailEnv(trail_class(**trail_args), discrete=global_discrete)
+    def env_fn(): return TrailEnv(None, discrete=global_discrete, treadmill=global_treadmill)
 
-    def env_fn_static(end): return TrailEnv(StraightTrail(end=end), discrete=global_discrete)
-    # env = DummyVecEnv([
-    #     lambda: env_fn_static(np.array([15, 15])),
-    #     lambda: env_fn_static(np.array([15, 0])),
-    #     lambda: env_fn_static(np.array([15, -15])),
-    #     lambda: env_fn_static(np.array([0, 15])),
-    #     lambda: env_fn_static(np.array([0, -15])),
-    #     lambda: env_fn_static(np.array([-15, 15])),
-    #     lambda: env_fn_static(np.array([-15, 0])),
-    #     lambda: env_fn_static(np.array([-15, -15]))
-    # ]
+    # env = DummyVecEnv([env_fn for _ in range(8)])
+    env = SubprocVecEnv([env_fn for _ in range(8)])
+    eval_env = TrailEnv(None, discrete=global_discrete, treadmill=global_treadmill)
 
-    env = DummyVecEnv([env_fn for _ in range(16)])
-    # env = SubprocVecEnv([env_fn for _ in range(16)])
-    eval_env = TrailEnv(trail_class(is_eval=True, **trail_args), discrete=global_discrete)
-
-    # Golden params
-    # model = PPO("CnnPolicy", env, verbose=1,
-    #             n_steps=64,
-    #             batch_size=512,
-    #             ent_coef=0.0001,
-    #             gamma=0.995,
-    #             gae_lambda=1.0,
-    #             use_sde=False,
-    #             clip_range=0.1,
-    #             max_grad_norm=2,
-    #             vf_coef=0.715,
-    #             n_epochs=20,
-    #             learning_rate=0.00025,
-    #             tensorboard_log='log',
-    #             )
-
+    # TODO: does specifying an arch add an MLP on top?
     model = PPO("CnnPolicy", env, verbose=1,
-                n_steps=512,
-                batch_size=512,
-                ent_coef=0.0001,
-                gamma=0.995,
-                gae_lambda=1.0,
-                use_sde=False,
-                clip_range=0.1,
-                max_grad_norm=2,
-                vf_coef=0.715,
-                n_epochs=10,
-                learning_rate=0.00015,
+                n_steps=256,
+                batch_size=32,
+                ent_coef=8e-6,
+                gamma=0.98,
+                gae_lambda=0.9,
+                clip_range=0.3,
+                max_grad_norm=1,
+                vf_coef=0.36,
+                n_epochs=15,
+                learning_rate=0.00012,
                 tensorboard_log='log',
+                device='auto'
                 )
+    # model.set_parameters('trained/lineage/gen2')
 
-    # model = PPO("CnnPolicy", env, verbose=1,
-    #             n_steps=256,
-    #             batch_size=128,
-    #             ent_coef=0.0001,
-    #             gamma=0.995,
-    #             gae_lambda=1.0,
-    #             use_sde=False,
-    #             clip_range=0.1,
-    #             max_grad_norm=2,
-    #             vf_coef=0.5,
-    #             n_epochs=5,
-    #             learning_rate=0.00015,
-    #             tensorboard_log='log',
-    #             )
-
-    model.learn(total_timesteps=800000, log_interval=5,
-                eval_env=eval_env, eval_freq=512)
+    model.learn(total_timesteps=1000000, log_interval=5,
+                eval_env=eval_env, eval_freq=512, callback=[ScheduleCallback(schedule, eval_env), TestCallback()])
     model.save('trail_model')
     exit()
-
-'''
+    
 # <codecell>
+'''
 # env = TrailEnv(trail_class(**trail_args))
 # model = PPO.load('trail_model')
 
@@ -403,7 +419,7 @@ ani.save('out.gif')
 
 
 # <codecell>
-env = TrailEnv()
+env = TrailEnv(discrete=True, treadmill=True)
 
 obs = env.reset()
 plt.imshow(obs[..., 0])
@@ -411,7 +427,7 @@ plt.show()
 for _ in range(10):
     action = env.action_space.sample()
     obs, reward, _, _ = env.step(action)
-    print(reward)
+    print('action', action - 1)
     plt.imshow(obs)
     plt.show()
 
@@ -473,9 +489,9 @@ print(env.agent.position_history)
 
 plt.imshow(obs)
 # %%
-trail_map = trail_class(is_eval=True, narrow_factor=2)
+# trail_map = trail_class(is_eval=True, narrow_factor=3)
+trail_map = trail_class(**trail_args)
 trail_map.plot()
 
 # %%
-
 '''
