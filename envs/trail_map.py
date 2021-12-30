@@ -14,7 +14,7 @@ class TrailMap:
     def __init__(self, start=None, end=None):
         self.start = start if start != None else np.array([0, 0])
         self.end = end if end != None else np.array([0, 0])
-        self.tol = 2
+        self.tol = 3
 
     def sample(self, x, y):
         """ Returns odor on scale from 0 to 1 """
@@ -173,11 +173,11 @@ class TrainingTrailSet(TrailMap):  # TODO: test
 
 class MeanderTrail(TrailMap):
     def __init__(self, length=50, 
-                       narrow_factor=3, 
+                       width=3, 
                        range=(-np.pi / 4, np.pi / 4), 
                        heading=None,
-                       reward_dist=15, 
-                       res=25, radius=70, diff_rate=0.05, local_len=1, is_eval=False):
+                       reward_dist=10, 
+                       res=25, radius=100, diff_rate=0.04, local_len=1, is_eval=False):
         super().__init__(start=None, end=None)
         self.T = length
         self.res = res
@@ -191,8 +191,7 @@ class MeanderTrail(TrailMap):
             self.range = range
 
         self.reward_dist = reward_dist
-        self.narrow_factor = narrow_factor
-        self.max_odor = 6 * (100 ** (1 / narrow_factor))
+        self.width = width
 
         self.x_coords, self.y_coords, self.checkpoints = self._sample_trail()
         self.end = np.array([self.x_coords[-1], self.y_coords[-1]])
@@ -245,14 +244,13 @@ class MeanderTrail(TrailMap):
 
     
     def sample(self, x, y):
-        dist = np.sqrt((self.x_coords - x) ** 2 + (self.y_coords - y) ** 2)
-        raw_odor = 1 / ((dist + 1) ** self.narrow_factor)
-        return np.sum(raw_odor) / self.max_odor
+        dist2 = (self.x_coords - x) ** 2 + (self.y_coords - y) ** 2
+        return np.exp(- np.min(dist2) / self.width)
 
     
     def plot(self, res=50, ax=None):
-        x = np.linspace(-40, 40, res)
-        y = np.linspace(-10, 50, res)
+        x = np.linspace(-50, 50, res)
+        y = np.linspace(-10, 60, res)
         xx, yy = np.meshgrid(x, y)
 
         odors = np.array([self.sample(x, y) for x, y in zip(xx.ravel(), yy.ravel())])
@@ -277,23 +275,21 @@ class MeanderTrail(TrailMap):
     
 
     def is_at_checkpoint(self, x, y):
-        if len(self.checkpoints) == 0:
-            return False
-        
-        next_ckpt = self.checkpoints[0]
-        if np.all(np.isclose((x, y), next_ckpt, atol=self.tol)):
-            self.checkpoints = self.checkpoints[1:]
-            return True
-        else:
-            return False
+        for i, ckpt in enumerate(self.checkpoints):
+            if np.all(np.isclose((x, y), ckpt, atol=self.tol)):
+                # self.checkpoints = np.delete(self.checkpoints, i, axis=0)
+                self.checkpoints = self.checkpoints[i+1:]
+                return True
+
+        return False
     
 
     def __str__(self) -> str:
-        return f'(len={self.T}, narrow={self.narrow_factor})'
+        return f'(len={self.T}, width={self.width})'
 
 
 if __name__ == '__main__':
-    trail = MeanderTrail(narrow_factor=3)
+    trail = MeanderTrail(width=2)
     trail.plot()
 
 # %%

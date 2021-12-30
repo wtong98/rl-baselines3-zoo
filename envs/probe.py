@@ -16,20 +16,19 @@ from trail_map import *
 global_discrete = True
 global_treadmill = True
 trail_class = MeanderTrail
-trail_args = {'narrow_factor': 5, 'length': 70, 'radius': 70}
+trail_args = {'width': 5, 'length': 75, 'radius': 100, 'diff_rate': 0.04}
 
 
 # <codecell>
 # RUNNING AGENT ON TRAILS
 
 # trail_map = StraightTrail(end=np.array([15, 15]), narrow_factor=2)
-trail_map = trail_class(**trail_args, heading=np.pi/8)
+trail_map = trail_class(**trail_args, heading=-np.pi/3)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
-env.map.plot()
 plt.show()
 
 model = PPO.load('trail_model.zip', device='cpu')
-# model = PPO.load('trained/branch_9_close2.zip', device='cpu')
+# model = PPO.load('trained/narrow5_mixed.zip', device='cpu')
 
 model.policy = model.policy.to('cpu')
 
@@ -51,6 +50,7 @@ for _ in range(100):
 
 env.map.plot(ax=plt.gca())
 plt.plot(*zip(*env.agent.position_history), linewidth=2, color='black')
+plt.savefig('out.png')
 
 print(env.agent.odor_history)
 
