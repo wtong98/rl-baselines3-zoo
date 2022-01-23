@@ -5,7 +5,7 @@ author: William Tong
 """
 
 # <codecell>
-from typing import List
+from typing import List, Tuple
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -174,6 +174,7 @@ class TrainingTrailSet(TrailMap):  # TODO: test
 class MeanderTrail(TrailMap):
     def __init__(self, length=50, 
                        width=3, 
+                       breaks : List[Tuple[float, float]] = [],   # list of tuple (start_break, end_break) proportions
                        range=(-np.pi / 4, np.pi / 4), 
                        heading=None,
                        reward_dist=10, 
@@ -192,6 +193,7 @@ class MeanderTrail(TrailMap):
 
         self.reward_dist = reward_dist
         self.width = width
+        self.breaks = breaks
 
         self.x_coords, self.y_coords, self.checkpoints = self._sample_trail()
         self.end = np.array([self.x_coords[-1], self.y_coords[-1]])
@@ -224,6 +226,11 @@ class MeanderTrail(TrailMap):
                 - dt * K[i] \
                 + np.sqrt(D * dt) * np.random.randn()
         
+        total_len = len(x)
+        break_mask = np.ones(total_len, dtype=bool)
+        for start_prop, end_prop in self.breaks:
+            break_mask[int(total_len * start_prop): int(total_len * end_prop)] = False
+        
         # rotate to net heading
         net_heading = np.random.uniform(*self.range)
         ang = np.arctan(y[-1] / x[-1])
@@ -236,7 +243,7 @@ class MeanderTrail(TrailMap):
             [np.sin(rot), np.cos(rot)]
         ])
 
-        points = np.stack((x, y), axis=0)
+        points = np.stack((x, y), axis=0)[:, break_mask]
         net_x, net_y = rot_mat @ points
 
         ckpts = rot_mat @ np.array(ckpts).T
@@ -289,7 +296,7 @@ class MeanderTrail(TrailMap):
 
 
 if __name__ == '__main__':
-    trail = MeanderTrail(width=2)
+    trail = MeanderTrail(width=2, breaks=[(0.5, 0.8)])
     trail.plot()
 
 # %%

@@ -5,12 +5,14 @@ author: William Tong (wtong@g.harvard.edu)
 """
 
 # <codecell>
-from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3 import PPO
-from typing import Tuple
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3 import PPO
 from skimage.transform import rescale
+from typing import Tuple
 
 import gym
 from gym import spaces
@@ -25,7 +27,7 @@ class TrailEnv(gym.Env):
     max_speed = 3
     view_distance = 25
     max_steps = 100
-    max_off_trail_steps = 10
+    max_off_trail_steps = np.inf
     observation_scale = 3
 
     def __init__(self, trail_map=None, discrete=True, treadmill=True):
@@ -305,11 +307,11 @@ class SummaryCallback(BaseCallback):
         print('LOCAL STEPS', self.step_iter)
 
 schedule = Schedule(trail_class) \
-    .add_ckpt(20000, width=20, length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, width=10, length=45, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, width=5, length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(18000, width=2, length=65, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(20000, width=1, length=75, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(20000, width=30, length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, width=20, length=45, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, width=10, length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, width=6, length=65, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, width=3, length=75, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
 
 # schedule = Schedule(trail_class) \
 #     .add_ckpt(80000, narrow_factor=5, length=70, radius=70, range=(-np.pi / 3, np.pi / 3)) \
@@ -325,21 +327,28 @@ if __name__ == '__main__':
     env = SubprocVecEnv([env_fn for _ in range(8)])
     eval_env = TrailEnv(None, discrete=global_discrete, treadmill=global_treadmill)
 
-    # TODO: does specifying an arch add an MLP on top?
+    # TODO: does specifying an arch add an MLP on top? Yes indeed
     model = PPO("CnnPolicy", env, verbose=1,
                 n_steps=128,
                 batch_size=256,
                 ent_coef=8e-6,
-                gamma=0.98,
+                gamma=0.95,
                 gae_lambda=0.9,
                 clip_range=0.3,
                 max_grad_norm=1,
                 vf_coef=0.36,
                 n_epochs=16,
                 learning_rate=0.0001,
+                policy_kwargs={
+                    'net_arch': [{'pi': [128, 32], 'vf': [128, 32]}],
+                    'activation_fn': torch.nn.ReLU
+                },
                 tensorboard_log='log',
                 device='auto'
                 )
+    
+    print('POLICY NETWORKS:')
+    print(model.policy)
     # model.set_parameters('trained/lineage/gen2')
 
     model.learn(total_timesteps=1000000, log_interval=5,
