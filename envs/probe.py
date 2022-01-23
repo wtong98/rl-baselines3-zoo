@@ -16,14 +16,15 @@ from trail_map import *
 global_discrete = True
 global_treadmill = True
 trail_class = MeanderTrail
-trail_args = {'width': 3, 'length': 75, 'radius': 100, 'diff_rate': 0.04, 'breaks': [(0.5, 0.8)]}
+# trail_args = {'width': 3, 'length': 75, 'radius': 100, 'diff_rate': 0.04, 'breaks': [(0.5, 0.8)]}
+trail_args = {'width': 3, 'length': 69, 'radius': 100, 'diff_rate': 0.04}
 
 
 # <codecell>
 # RUNNING AGENT ON TRAILS
 
 # trail_map = StraightTrail(end=np.array([15, 15]), narrow_factor=2)
-trail_map = trail_class(**trail_args, heading=np.pi/8)
+trail_map = trail_class(**trail_args, heading=-np.pi/4)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
 plt.show()
 

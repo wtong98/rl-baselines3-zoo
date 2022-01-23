@@ -310,14 +310,11 @@ schedule = Schedule(trail_class) \
     .add_ckpt(20000, width=30, length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
     .add_ckpt(15000, width=20, length=45, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
     .add_ckpt(15000, width=10, length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, width=6, length=65, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, width=3, length=75, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-
-# schedule = Schedule(trail_class) \
-#     .add_ckpt(80000, narrow_factor=5, length=70, radius=70, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, width=7, length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, width=5, length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, width=3, length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
 
 
-# TODO: experiment with policy kwargs to adjust architecture
 if __name__ == '__main__':
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
@@ -327,12 +324,11 @@ if __name__ == '__main__':
     env = SubprocVecEnv([env_fn for _ in range(8)])
     eval_env = TrailEnv(None, discrete=global_discrete, treadmill=global_treadmill)
 
-    # TODO: does specifying an arch add an MLP on top? Yes indeed
     model = PPO("CnnPolicy", env, verbose=1,
                 n_steps=128,
                 batch_size=256,
                 ent_coef=8e-6,
-                gamma=0.95,
+                gamma=0.98,
                 gae_lambda=0.9,
                 clip_range=0.3,
                 max_grad_norm=1,

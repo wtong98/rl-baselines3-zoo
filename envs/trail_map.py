@@ -6,6 +6,7 @@ author: William Tong
 
 # <codecell>
 from typing import List, Tuple
+from black import diff
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -296,8 +297,9 @@ class MeanderTrail(TrailMap):
 
 
 if __name__ == '__main__':
-    trail = MeanderTrail(width=2, breaks=[(0.5, 0.8)])
+    trail = MeanderTrail(width=10, radius=70, diff_rate=0.05, length=65)
     trail.plot()
+    plt.savefig('/tmp/haven/fig.png')
 
 # %%
 
