@@ -303,7 +303,9 @@ class BrokenMeanderTrail(MeanderTrail):
                        max_break_dist=0.9, 
                        trail_length=50, **kwargs):
         
-        self.exp_breaks = exp_breaks
+        # self.exp_breaks = exp_breaks
+        # forcing breaks
+        self.exp_breaks = 1
         self.exp_len = exp_len
         self.max_break_dist = max_break_dist
         self.T = trail_length
@@ -316,8 +318,13 @@ class BrokenMeanderTrail(MeanderTrail):
         num_breaks = np.random.poisson(self.exp_breaks)
         lens = np.random.exponential(self.exp_len, num_breaks)
 
-        starts = np.random.random(num_breaks)
-        ends = starts + lens / self.T
+        # forcing to break at half-way point
+        # starts = np.random.random(num_breaks)
+        starts = np.array([0.5])
+        # ends = starts + lens / self.T
+        # ends = starts + lens[0] / self.T if len(lens) > 0 else []
+        ends = np.array([0.6])
+
         self.breaks = [pair for pair in zip(starts, ends) if pair[1] < self.max_break_dist]
 
     def reset(self):
@@ -328,8 +335,7 @@ class BrokenMeanderTrail(MeanderTrail):
 if __name__ == '__main__':
     # trail = MeanderTrail(width=10, radius=70, diff_rate=0.05, length=65)
     # trail = MeanderTrail(width=10, radius=999, diff_rate=0, length=65, breaks=[(0.1, 0.3), (0.8, 1.1)])
-    trail = BrokenMeanderTrail(exp_breaks=2, exp_len=10, trail_length=100)
+    trail = BrokenMeanderTrail(exp_breaks=1, exp_len=10, trail_length=100, diff_rate=0.01)
     trail.plot()
 
 # %%
-

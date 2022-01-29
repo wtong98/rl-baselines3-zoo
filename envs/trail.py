@@ -25,7 +25,7 @@ class TrailEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     heading_bound = np.pi
     max_speed = 3
-    view_distance = 25
+    view_distance = 50
     max_steps = 100
     max_off_trail_steps = np.inf
     observation_scale = 3
@@ -288,7 +288,7 @@ class TrailContinuousEnv(TrailEnv):
 
 global_discrete = True
 global_treadmill = True
-trail_class = BrokenMeanderTrail
+trail_class = MeanderTrail
 trail_args = {'narrow_factor': 5, 'length': 75, 'radius': 70, 'range': (-np.pi / 3, np.pi / 3)}
 
 # <codecell>
@@ -306,13 +306,24 @@ class SummaryCallback(BaseCallback):
         print('TOTAL STEPS', self.num_timesteps)
         print('LOCAL STEPS', self.step_iter)
 
+# BrokenMeanderTrail
+# schedule = Schedule(trail_class) \
+#     .add_ckpt(20000, exp_breaks=0, exp_len=10,  width=30, trail_length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(15000, exp_breaks=0, exp_len=10,  width=20, trail_length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+#     .add_ckpt(15000, exp_breaks=1, exp_len=10, width=10, trail_length=75, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    # .add_ckpt(15000, exp_breaks=1, exp_len=10, width=7,  trail_length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=5,  trail_length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=3,  trail_length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+
 schedule = Schedule(trail_class) \
-    .add_ckpt(20000, exp_breaks=0, exp_len=0,  width=30, trail_length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, exp_breaks=0, exp_len=0,  width=20, trail_length=45, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, exp_breaks=1, exp_len=5,  width=10, trail_length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, exp_breaks=1, exp_len=7,  width=7,  trail_length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, exp_breaks=2, exp_len=10, width=5,  trail_length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, exp_breaks=2, exp_len=10, width=3,  trail_length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(20000, breaks=[(0.5, 0.6)], width=30, length=35, diff_rate=0.01, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, breaks=[(0.5, 0.7)], width=30, length=65, diff_rate=0.01, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, breaks=[(0.5, 0.7)], width=30, length=95, diff_rate=0.01, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
+    # .add_ckpt(15000, breaks=[(0.5, 0.6)], width=20, trail_length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    # .add_ckpt(15000, breaks=[(0.5, 0.6)], width=10, trail_length=75, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    # .add_ckpt(15000, exp_breaks=1, exp_len=10, width=7,  trail_length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=5,  trail_length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=3,  trail_length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
 
 
 if __name__ == '__main__':
@@ -340,7 +351,7 @@ if __name__ == '__main__':
                     'activation_fn': torch.nn.ReLU
                 },
                 tensorboard_log='log',
-                device='auto'
+                device='cpu'
                 )
     
     print('POLICY NETWORKS:')
@@ -352,8 +363,8 @@ if __name__ == '__main__':
     model.save('trail_model')
     exit()
     
-# <codecell>
 '''
+# <codecell>
 # env = TrailEnv(trail_class(**trail_args))
 # model = PPO.load('trail_model')
 
