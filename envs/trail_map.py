@@ -256,9 +256,9 @@ class MeanderTrail(TrailMap):
         return np.exp(- np.min(dist2) / self.width)
 
     
-    def plot(self, res=50, ax=None):
+    def plot(self, res=75, ax=None):
         x = np.linspace(-50, 50, res)
-        y = np.linspace(-10, 60, res)
+        y = np.linspace(-10, 100, res)
         xx, yy = np.meshgrid(x, y)
 
         odors = np.array([self.sample(x, y) for x, y in zip(xx.ravel(), yy.ravel())])
@@ -271,6 +271,7 @@ class MeanderTrail(TrailMap):
             ax.contourf(x, y, odors)
             return ax.scatter(ckpt_x, ckpt_y, color='red')
         else:
+            plt.gcf().set_size_inches(8, 8)
             plt.plot(self.x_coords, self.y_coords, linewidth=3, color='red', alpha=0.5)
             plt.contourf(x, y, odors)
             plt.scatter(ckpt_x, ckpt_y, color='red')
@@ -296,10 +297,39 @@ class MeanderTrail(TrailMap):
         return f'(len={self.T}, width={self.width})'
 
 
+class BrokenMeanderTrail(MeanderTrail):
+    def __init__(self, exp_breaks=0, 
+                       exp_len=0, 
+                       max_break_dist=0.9, 
+                       trail_length=50, **kwargs):
+        
+        self.exp_breaks = exp_breaks
+        self.exp_len = exp_len
+        self.max_break_dist = max_break_dist
+        self.T = trail_length
+        self._reset_breaks()
+
+        super().__init__(length=trail_length, breaks=self.breaks, **kwargs)
+
+    
+    def _reset_breaks(self):
+        num_breaks = np.random.poisson(self.exp_breaks)
+        lens = np.random.exponential(self.exp_len, num_breaks)
+
+        starts = np.random.random(num_breaks)
+        ends = starts + lens / self.T
+        self.breaks = [pair for pair in zip(starts, ends) if pair[1] < self.max_break_dist]
+
+    def reset(self):
+        self._reset_breaks()
+        super().reset()
+
+
 if __name__ == '__main__':
-    trail = MeanderTrail(width=10, radius=70, diff_rate=0.05, length=65)
+    # trail = MeanderTrail(width=10, radius=70, diff_rate=0.05, length=65)
+    # trail = MeanderTrail(width=10, radius=999, diff_rate=0, length=65, breaks=[(0.1, 0.3), (0.8, 1.1)])
+    trail = BrokenMeanderTrail(exp_breaks=2, exp_len=10, trail_length=100)
     trail.plot()
-    plt.savefig('/tmp/haven/fig.png')
 
 # %%
 

@@ -288,7 +288,7 @@ class TrailContinuousEnv(TrailEnv):
 
 global_discrete = True
 global_treadmill = True
-trail_class = MeanderTrail
+trail_class = BrokenMeanderTrail
 trail_args = {'narrow_factor': 5, 'length': 75, 'radius': 70, 'range': (-np.pi / 3, np.pi / 3)}
 
 # <codecell>
@@ -307,12 +307,12 @@ class SummaryCallback(BaseCallback):
         print('LOCAL STEPS', self.step_iter)
 
 schedule = Schedule(trail_class) \
-    .add_ckpt(20000, width=30, length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, width=20, length=45, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, width=10, length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, width=7, length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, width=5, length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    .add_ckpt(15000, width=3, length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(20000, exp_breaks=0, exp_len=0,  width=30, trail_length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, exp_breaks=0, exp_len=0,  width=20, trail_length=45, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, exp_breaks=1, exp_len=5,  width=10, trail_length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, exp_breaks=1, exp_len=7,  width=7,  trail_length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, exp_breaks=2, exp_len=10, width=5,  trail_length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(15000, exp_breaks=2, exp_len=10, width=3,  trail_length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
 
 
 if __name__ == '__main__':

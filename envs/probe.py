@@ -16,35 +16,38 @@ from trail_map import *
 global_discrete = True
 global_treadmill = True
 trail_class = MeanderTrail
-# trail_args = {'width': 3, 'length': 75, 'radius': 100, 'diff_rate': 0.04, 'breaks': [(0.5, 0.8)]}
-trail_args = {'width': 3, 'length': 69, 'radius': 100, 'diff_rate': 0.04}
+# trail_args = {'width': 3, 'length': 69, 'radius': 100, 'diff_rate': 0.04, 'breaks': [(0.5, 0.8)]}
+trail_args = {'width': 3, 'length': 100, 'radius': 100, 'diff_rate': 0.04}
+
+# Straight "meandering" trail
+# trail_args = {'width': 5, 'length': 69, 'radius': 999, 'diff_rate': 0, 'breaks':[(0.5, 0.8)]}
 
 
 # <codecell>
 # RUNNING AGENT ON TRAILS
 
 # trail_map = StraightTrail(end=np.array([15, 15]), narrow_factor=2)
-trail_map = trail_class(**trail_args, heading=-np.pi/4)
+trail_map = trail_class(**trail_args, heading=0)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
 plt.show()
 
-model = PPO.load('trail_model.zip', device='cpu')
-# model = PPO.load('trained/narrow5_mixed.zip', device='cpu')
+model = PPO.load('trained/epoch_1/osc_width3_jan23.zip', device='cpu')
+# model = PPO.load('trained/epoch_1/looper_jan23.zip', device='cpu')
 
 model.policy = model.policy.to('cpu')
 
 obs = env.reset()
-plt.imshow(obs)
+# plt.imshow(obs)
 for _ in range(100):
     action, _ = model.predict(obs, deterministic=False)
     obs, reward, is_done, _ = env.step(action)
 
-    print(action)
-    print(is_done)
-    print('last reward:', reward)
+    # print(action)
+    # print(is_done)
+    # print('last reward:', reward)
 
-    plt.imshow(obs)
-    plt.show()
+    # plt.imshow(obs)
+    # plt.show()
 
     if is_done:
         break
@@ -53,7 +56,7 @@ env.map.plot(ax=plt.gca())
 plt.plot(*zip(*env.agent.position_history), linewidth=2, color='black')
 plt.savefig('out.png')
 
-print(env.agent.odor_history)
+# print(env.agent.odor_history)
 
 # <codecell>
 # FUNC ANIMATION
