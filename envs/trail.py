@@ -25,7 +25,7 @@ class TrailEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     heading_bound = np.pi
     max_speed = 3
-    view_distance = 50
+    view_distance = 25
     max_steps = 100
     max_off_trail_steps = np.inf
     observation_scale = 3
@@ -168,12 +168,13 @@ class TrailAgent:
 
     # TODO: optimize over reward scheme
     def get_reward(self) -> Tuple[float, bool]:
-        # TODO: remove? End may not have highest odor
-        reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
+        # TODO: remove?
+        # reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
+        reward = -1
         # reward = 0
 
         if np.isclose(self.map.sample(*self.position), 0, atol=1e-2):
-            reward = -2
+            # reward = -2
             self.off_trail_step += 1
             if self.off_trail_step == TrailEnv.max_off_trail_steps:
                 return reward, True
@@ -315,16 +316,21 @@ class SummaryCallback(BaseCallback):
     # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=5,  trail_length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
     # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=3,  trail_length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
 
+# Break Experiment
 schedule = Schedule(trail_class) \
-    .add_ckpt(20000, breaks=[(0.5, 0.6)], width=30, length=35, diff_rate=0.01, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, breaks=[(0.5, 0.7)], width=30, length=65, diff_rate=0.01, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, breaks=[(0.5, 0.7)], width=30, length=95, diff_rate=0.01, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
-    # .add_ckpt(15000, breaks=[(0.5, 0.6)], width=20, trail_length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    # .add_ckpt(15000, breaks=[(0.5, 0.6)], width=10, trail_length=75, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    # .add_ckpt(15000, exp_breaks=1, exp_len=10, width=7,  trail_length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=5,  trail_length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-    # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=3,  trail_length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=30, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, breaks=[(0.5, 0.8)], width=20, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, breaks=[(0.5, 0.8)], width=10, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, breaks=[(0.5, 0.8)], width=7,  length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, breaks=[(0.5, 0.8)], width=5,  length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
 
+# schedule = Schedule(trail_class) \
+#     .add_ckpt(20000, width=30, length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(15000, width=20, length=45, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+#     .add_ckpt(15000, width=10, length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+#     .add_ckpt(15000, width=7, length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+#     .add_ckpt(15000, width=5, length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+#     .add_ckpt(15000, width=3, length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
 
 if __name__ == '__main__':
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
@@ -351,7 +357,7 @@ if __name__ == '__main__':
                     'activation_fn': torch.nn.ReLU
                 },
                 tensorboard_log='log',
-                device='cpu'
+                device='auto'
                 )
     
     print('POLICY NETWORKS:')

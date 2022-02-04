@@ -7,6 +7,7 @@ from matplotlib.animation import FuncAnimation
 from pytorch_grad_cam import GradCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
 from stable_baselines3 import PPO
+from tqdm import tqdm
 
 from trail import TrailEnv
 from trail_map import *
@@ -18,11 +19,11 @@ global_treadmill = True
 trail_class = MeanderTrail
 # trail_args = {'width': 3, 'length': 69, 'radius': 100, 'diff_rate': 0.04, 'breaks': [(0.5, 0.8)]}
 trail_args = {
-    'width': 20, 
-    'length': 95, 
+    'width': 5, 
+    'length': 90, 
     'radius': 100, 
     'diff_rate': 0.01, 
-    'breaks':[(0.5, 0.7)]
+    'breaks':[(0.5, 0.62)]
 }
 
 # Straight "meandering" trail
@@ -34,13 +35,11 @@ trail_args = {
 
 trail_map = trail_class(**trail_args, heading=0)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
-
-# model = PPO.load('trained/epoch_2/width10_break_jan29.zip', device='cpu')
 model = PPO.load('trail_model.zip', device='cpu')
 
 obs = env.reset()
 for _ in range(100):
-    action, _ = model.predict(obs, deterministic=False)
+    action, _ = model.predict(obs, deterministic=True)
     obs, reward, is_done, _ = env.step(action)
 
     if is_done:
@@ -51,6 +50,43 @@ plt.plot(*zip(*env.agent.position_history), linewidth=2, color='black')
 plt.savefig('out.png')
 
 # print(env.agent.odor_history)
+
+# <codecell>
+# MULTI-SAMPLE PLOTTER
+# model = PPO.load('trained/epoch_2/new_reward_jan30.zip', device='cpu')
+model = PPO.load('trail_model.zip', device='cpu')
+
+
+n_runs = 8
+headings = np.linspace(-np.pi / 7, np.pi / 7, num=n_runs)
+
+maps = []
+position_hists = []
+
+for heading in tqdm(headings):
+    trail_map = trail_class(**trail_args, heading=heading)
+    env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
+
+    obs = env.reset()
+    for _ in range(100):
+        action, _ = model.predict(obs, deterministic=True)
+        obs, reward, is_done, _ = env.step(action)
+
+        if is_done:
+            break
+    
+    maps.append(trail_map)
+    position_hists.append(env.agent.position_history)
+
+fig, axs = plt.subplots(2, 4, figsize=(16, 8))
+
+for ax, m, position_history in zip(axs.ravel(), maps, position_hists):
+    m.plot(ax=ax)
+    ax.plot(*zip(*position_history), linewidth=2, color='black')
+
+fig.suptitle('Sample of agent runs')
+fig.tight_layout()
+plt.savefig('out.png')
 
 # <codecell>
 # FUNC ANIMATION
@@ -79,7 +115,7 @@ ani.save('out.gif')
 
 # %%
 # DECISION VISUALS
-model = PPO.load('trained/epoch_2/width10_break_jan29.zip', device='cpu')
+model = PPO.load('trail_model.zip', device='cpu')
 pi = model.policy
 all_actions = torch.arange(model.action_space.n)
 
@@ -113,6 +149,7 @@ obs = env.reset()
 for _ in range(100):
     action, _ = model.predict(obs, deterministic=True)
     obs, reward, is_done, _ = env.step(action)
+    print(reward)
 
     fig, axs = plt.subplots(1, 1, figsize=(8, 4))
     ax1 = plt.subplot(121)
