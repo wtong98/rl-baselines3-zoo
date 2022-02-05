@@ -23,7 +23,9 @@ trail_args = {
     'length': 90, 
     'radius': 100, 
     'diff_rate': 0.01, 
-    'breaks':[(0.5, 0.62)]
+    'reward_dist': 3,
+    # 'breaks':[(0.5, 0.62)]
+    # 'breaks':[(0.5, 0.8)]
 }
 
 # Straight "meandering" trail

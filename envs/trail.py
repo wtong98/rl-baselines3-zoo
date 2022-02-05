@@ -25,10 +25,11 @@ class TrailEnv(gym.Env):
     metadata = {'render.modes': ['human']}
     heading_bound = np.pi
     max_speed = 3
-    view_distance = 25
+    view_distance = 40
     max_steps = 100
     max_off_trail_steps = np.inf
-    observation_scale = 3
+    observation_scale = 2
+    y_adjust = 0.3
 
     def __init__(self, trail_map=None, discrete=True, treadmill=True):
         super().__init__()
@@ -68,7 +69,7 @@ class TrailEnv(gym.Env):
                                             dtype=np.uint8)
 
         self.map = trail_map
-        self.agent = TrailAgent(self.map, TrailEnv.view_distance, scale=TrailEnv.observation_scale)
+        self.agent = TrailAgent(self.map, TrailEnv.view_distance, scale=TrailEnv.observation_scale, y_adjust=TrailEnv.y_adjust)
         self.curr_step = 0
 
     def step(self, action):
@@ -113,7 +114,7 @@ class TrailEnv(gym.Env):
         else:
             self.map.reset()
 
-        self.agent = TrailAgent(self.map, TrailEnv.view_distance, scale=TrailEnv.observation_scale)
+        self.agent = TrailAgent(self.map, TrailEnv.view_distance, scale=TrailEnv.observation_scale, y_adjust=TrailEnv.y_adjust)
         obs = self.agent.make_observation()
         return obs
 
@@ -126,12 +127,13 @@ class TrailEnv(gym.Env):
 
 
 class TrailAgent:
-    def __init__(self, trail_map, view_distance, scale=1):
+    def __init__(self, trail_map, view_distance, scale=1, y_adjust=0):
         self.position = [0, 0]
         self.heading = 0
         self.map = trail_map
         self.view_distance = view_distance
         self.observation_scale = scale
+        self.y_adjust = y_adjust
 
         self.position_history = [[0, 0]]
         self.odor_history = []
@@ -170,7 +172,7 @@ class TrailAgent:
     def get_reward(self) -> Tuple[float, bool]:
         # TODO: remove?
         # reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
-        reward = -1
+        reward = -2
         # reward = 0
 
         if np.isclose(self.map.sample(*self.position), 0, atol=1e-2):
@@ -210,9 +212,11 @@ class TrailAgent:
         ])
 
         # ego = (rot_trans @ (past_pos + orig_trans).T).T
-        ego = past_pos + orig_trans
+        ego = (past_pos + orig_trans) @ rot_trans.T
+        # ego = past_pos + orig_trans
         # ego = past_pos
         ego_pos = ego + self.view_distance
+        ego_pos[:,1] += int(self.y_adjust * self.view_distance)  # shift upwards
 
         # Manhattan interpolation
         for i, point in enumerate(ego_pos[:-1]):
@@ -253,9 +257,11 @@ class TrailAgent:
         ])
 
         # ego = (rot_trans @ (past_pos + orig_trans).T).T
-        ego = past_pos + orig_trans
+        ego = (past_pos + orig_trans) @ rot_trans.T
+        # ego = past_pos + orig_trans
         # ego = past_pos
         ego_pos = ego + self.view_distance
+        ego_pos[:,1] += int(self.y_adjust * self.view_distance)  # shift upwards
 
         for odor, pos in zip(past_odor, ego_pos):
             x_pos = int(pos[0])
@@ -319,10 +325,12 @@ class SummaryCallback(BaseCallback):
 # Break Experiment
 schedule = Schedule(trail_class) \
     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=30, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, breaks=[(0.5, 0.8)], width=20, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, breaks=[(0.5, 0.8)], width=10, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, breaks=[(0.5, 0.8)], width=7,  length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(15000, breaks=[(0.5, 0.8)], width=5,  length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=20, length=40, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=10, length=50, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=7,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=6,  length=70, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=5,  length=80, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=5,  length=90, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
 
 # schedule = Schedule(trail_class) \
 #     .add_ckpt(20000, width=30, length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
@@ -427,7 +435,7 @@ ani.save('out.gif')
 
 
 # <codecell>
-env = TrailEnv(discrete=False, treadmill=True)
+env = TrailEnv(discrete=True, treadmill=True)
 
 obs = env.reset()
 plt.imshow(obs[..., 0])
