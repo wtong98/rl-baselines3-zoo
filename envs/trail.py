@@ -17,8 +17,12 @@ from typing import Tuple
 import gym
 from gym import spaces
 
-from trail_map import *
-from schedule import *
+try:
+    from trail_map import *
+    from schedule import *
+except ImportError:
+    from .trail import *
+    from .schedule import *
 
 
 class TrailEnv(gym.Env):
