@@ -21,7 +21,7 @@ try:
     from trail_map import *
     from schedule import *
 except ImportError:
-    from .trail import *
+    from .trail_map import *
     from .schedule import *
 
 
