@@ -39,7 +39,7 @@ class TrailEnv(gym.Env):
 
         self.next_map = None
         if trail_map == None:
-            trail_map = MeanderTrail(width=20, length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4))
+            trail_map = MeanderTrail(width=20, length=35, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4))
 
         """
         The action space is the tuple (heading, velocity).
@@ -83,7 +83,7 @@ class TrailEnv(gym.Env):
                 self.agent.move_abs(heading, TrailEnv.max_speed)
         else:
             if self.treadmill:
-                heading = action[0] * np.pi / 2  # 'tuned' to /4
+                heading = action[0] * np.pi / 4  # 'tuned' to /4
                 speed = ((action[1] + 1) / 1) * TrailEnv.max_speed # 'tuned' to /1
                 self.agent.move(heading, speed)
             else:
