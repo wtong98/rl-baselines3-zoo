@@ -26,7 +26,6 @@ except ImportError:
 
 
 class TrailEnv(gym.Env):
-    metadata = {'render.modes': ['human']}
     heading_bound = np.pi
     max_speed = 3
     view_distance = 40
@@ -106,7 +105,6 @@ class TrailEnv(gym.Env):
 
         self.curr_step += 1
 
-        # print('action: ', action, 'rew:', reward, 'pos:', self.agent.position)
         return obs, reward, is_done, {}
 
     def reset(self):
@@ -180,7 +178,6 @@ class TrailAgent:
         # reward = 0
 
         if np.isclose(self.map.sample(*self.position), 0, atol=1e-2):
-            # reward = -2
             self.off_trail_step += 1
             if self.off_trail_step == TrailEnv.max_off_trail_steps:
                 return reward, True
@@ -327,22 +324,28 @@ class SummaryCallback(BaseCallback):
     # .add_ckpt(15000, exp_breaks=2, exp_len=10, width=3,  trail_length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
 
 # Break Experiment
+# schedule = Schedule(trail_class) \
+#     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=30, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=20, length=40, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=10, length=50, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=7,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=6,  length=70, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=5,  length=80, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=5,  length=90, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+
 schedule = Schedule(trail_class) \
-    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=30, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=20, length=40, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=10, length=50, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=7,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=6,  length=70, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=5,  length=80, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
-    .add_ckpt(20000, breaks=[(0.5, 0.8)], width=5,  length=90, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+    .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 4 * np.pi / 12,   4 * np.pi / 12)) \
+    .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 6 * np.pi / 12,   6 * np.pi / 12)) \
+    .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 10 * np.pi / 12, 10 * np.pi / 12)) \
+    .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 12 * np.pi / 12, 12 * np.pi / 12)) \
 
 # schedule = Schedule(trail_class) \
-#     .add_ckpt(20000, width=30, length=35, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 4, np.pi / 4)) \
-#     .add_ckpt(15000, width=20, length=45, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-#     .add_ckpt(15000, width=10, length=55, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-#     .add_ckpt(15000, width=7, length=59, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-#     .add_ckpt(15000, width=5, length=64, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
-#     .add_ckpt(15000, width=3, length=69, diff_rate=0.04, radius=100, reward_dist=10, range=(-np.pi / 3, np.pi / 3)) \
+#     .add_ckpt(20000, width=30, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
+#     .add_ckpt(15000, width=20, length=40, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 3, np.pi / 3)) \
+#     .add_ckpt(15000, width=10, length=50, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 2.67, np.pi / 2.67)) \
+#     .add_ckpt(15000, width=10, length=50, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 2, np.pi / 2)) \
+#     .add_ckpt(15000, width=10, length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 3 * np.pi / 4, 3 * np.pi / 4)) \
+#     .add_ckpt(15000, width=10, length=70, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi, np.pi)) \
 
 if __name__ == '__main__':
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
@@ -374,7 +377,8 @@ if __name__ == '__main__':
     
     print('POLICY NETWORKS:')
     print(model.policy)
-    # model.set_parameters('trained/lineage/gen2')
+    # TODO: schedule pretrained agent
+    model.set_parameters('trained/epoch_3/possible_caster_feb5.zip')
 
     model.learn(total_timesteps=1000000, log_interval=5,
                 eval_env=eval_env, eval_freq=512, callback=[ScheduleCallback(schedule, eval_env), SummaryCallback()])

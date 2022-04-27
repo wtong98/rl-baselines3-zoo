@@ -256,9 +256,9 @@ class MeanderTrail(TrailMap):
         return np.exp(- np.min(dist2) / self.width)
 
     
-    def plot(self, res=75, ax=None):
-        x = np.linspace(-50, 50, res)
-        y = np.linspace(-10, 100, res)
+    def plot(self, res=200, ax=None, xmin=-100, xmax=100, ymin=-100, ymax=100):
+        x = np.linspace(xmin, xmax, res)
+        y = np.linspace(ymin, ymax, res)
         xx, yy = np.meshgrid(x, y)
 
         odors = np.array([self.sample(x, y) for x, y in zip(xx.ravel(), yy.ravel())])
@@ -269,13 +269,19 @@ class MeanderTrail(TrailMap):
         if ax:
             ax.plot(self.x_coords, self.y_coords, linewidth=3, color='red', alpha=0.5)
             ax.contourf(x, y, odors)
-            return ax.scatter(ckpt_x, ckpt_y, color='red')
+            ax.scatter(ckpt_x, ckpt_y, color='red')
+
+            circle = plt.Circle((self.x_coords[0], self.y_coords[0]), radius=3, color='blue', zorder=100, alpha=0.7)
+            return ax.add_patch(circle)
         else:
             plt.gcf().set_size_inches(8, 8)
             plt.plot(self.x_coords, self.y_coords, linewidth=3, color='red', alpha=0.5)
             plt.contourf(x, y, odors)
             plt.scatter(ckpt_x, ckpt_y, color='red')
             plt.colorbar()
+
+            circle = plt.Circle((self.x_coords[0], self.y_coords[0]), radius=3, color='blue', zorder=100, alpha=0.7)
+            plt.gca().add_patch(circle)
 
 
     def reset(self):

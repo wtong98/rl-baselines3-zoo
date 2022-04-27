@@ -19,13 +19,13 @@ global_treadmill = True
 trail_class = MeanderTrail
 # trail_args = {'width': 3, 'length': 69, 'radius': 100, 'diff_rate': 0.04, 'breaks': [(0.5, 0.8)]}
 trail_args = {
-    'width': 5, 
+    'width': 10, 
     'length': 90, 
     'radius': 100, 
     'diff_rate': 0.01, 
     'reward_dist': 3,
-    # 'breaks':[(0.5, 0.62)]
-    # 'breaks':[(0.5, 0.8)]
+    'breaks':[(0.6, 0.8)]
+    # 'breaks':[(0.5, 0.99)]
 }
 
 # Straight "meandering" trail
@@ -37,7 +37,27 @@ trail_args = {
 
 trail_map = trail_class(**trail_args, heading=0)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
-model = PPO.load('trail_model.zip', device='cpu')
+model = PPO.load('trained/epoch_4/meander_360_feb22.zip', device='cpu')
+# model = PPO.load('trained/epoch_3/possible_caster_feb5.zip', device='cpu')
+# model = PPO("CnnPolicy", env, verbose=1,
+#             n_steps=128,
+#             batch_size=256,
+#             ent_coef=8e-6,
+#             gamma=0.98,
+#             gae_lambda=0.9,
+#             clip_range=0.3,
+#             max_grad_norm=1,
+#             vf_coef=0.36,
+#             n_epochs=16,
+#             learning_rate=0.0001,
+#             policy_kwargs={
+#                 'net_arch': [{'pi': [128, 32], 'vf': [128, 32]}],
+#                 'activation_fn': torch.nn.ReLU
+#             },
+#             tensorboard_log='log',
+#             device='cpu'
+# )
+# model.set_parameters('gen1.zip')
 
 obs = env.reset()
 for _ in range(100):
@@ -55,12 +75,11 @@ plt.savefig('out.png')
 
 # <codecell>
 # MULTI-SAMPLE PLOTTER
-# model = PPO.load('trained/epoch_2/new_reward_jan30.zip', device='cpu')
-model = PPO.load('trail_model.zip', device='cpu')
-
+# model = PPO.load('trail_model.zip', device='cpu')
+# model = PPO.load('trained/epoch_3/possible_caster_feb5.zip', device='cpu')
 
 n_runs = 8
-headings = np.linspace(-np.pi / 7, np.pi / 7, num=n_runs)
+headings = np.linspace(-np.pi, np.pi, num=n_runs)
 
 maps = []
 position_hists = []
@@ -95,7 +114,7 @@ plt.savefig('out.png')
 
 trail_map = trail_class(**trail_args)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
-model = PPO.load('trained/epoch_2/width10_break_jan29.zip', device='cpu')
+# model = PPO.load('trained/epoch_2/width10_break_jan29.zip', device='cpu')
 
 obs = env.reset()
 frames = [env.agent.position_history[:]]
@@ -117,11 +136,11 @@ ani.save('out.gif')
 
 # %%
 # DECISION VISUALS
-model = PPO.load('trail_model.zip', device='cpu')
+# model = PPO.load('trail_model.zip', device='cpu')
 pi = model.policy
 all_actions = torch.arange(model.action_space.n)
 
-trail_map = trail_class(**trail_args, heading=0)
+trail_map = trail_class(**trail_args, heading=np.pi/3)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
 
 @torch.no_grad()
