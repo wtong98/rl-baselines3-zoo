@@ -19,10 +19,13 @@ from gym import spaces
 
 try:
     from trail_map import *
-    from schedule import *
-except ImportError:
+    from curriculum import *
+except ImportError as e:
     from .trail_map import *
-    from .schedule import *
+    from .curriculum import *
+except Exception as e:
+    raise e
+
 
 
 class TrailEnv(gym.Env):
@@ -120,10 +123,6 @@ class TrailEnv(gym.Env):
         obs = self.agent.make_observation()
         return obs
 
-    def render(self, mode='human'):
-        obs = self.agent.make_observation()
-        print(obs[:, :, 0])
-    
     def queue_map(self, next_map):
         self.next_map = next_map
 
@@ -212,10 +211,7 @@ class TrailAgent:
             [np.sin(rot_ang), np.cos(rot_ang)]
         ])
 
-        # ego = (rot_trans @ (past_pos + orig_trans).T).T
         ego = (past_pos + orig_trans) @ rot_trans.T
-        # ego = past_pos + orig_trans
-        # ego = past_pos
         ego_pos = ego + self.view_distance
         ego_pos[:,1] += int(self.y_adjust * self.view_distance)  # shift upwards
 
@@ -257,10 +253,7 @@ class TrailAgent:
             [np.sin(rot_ang), np.cos(rot_ang)]
         ])
 
-        # ego = (rot_trans @ (past_pos + orig_trans).T).T
         ego = (past_pos + orig_trans) @ rot_trans.T
-        # ego = past_pos + orig_trans
-        # ego = past_pos
         ego_pos = ego + self.view_distance
         ego_pos[:,1] += int(self.y_adjust * self.view_distance)  # shift upwards
 
@@ -270,7 +263,6 @@ class TrailAgent:
             for x_ in range(x_pos - 1, x_pos + 2):
                 for y_ in range(y_pos - 1, y_pos + 2):
                     x_coord, y_coord = x_, y_
-                    # x_coord, y_coord = pos
                     if 0 <= x_coord < self.view_distance * 2 - 1 \
                             and 0 <= y_coord < self.view_distance * 2 - 1:
 

@@ -58,6 +58,9 @@ class Schedule:
     
     def __iter__(self):
         return iter(self.checkpoints)
+
+
+
     
 
     
