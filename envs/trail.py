@@ -100,15 +100,14 @@ class TrailEnv(gym.Env):
         self.agent.sniff()
 
         obs = self.agent.make_observation()
-        reward, is_done = self.agent.get_reward()
+        reward, is_done, is_success = self.agent.get_reward()
 
         if self.curr_step == TrailEnv.max_steps:
             is_done = True
 
-
         self.curr_step += 1
 
-        return obs, reward, is_done, {}
+        return obs, reward, is_done, {'is_success': is_success}
 
     def reset(self):
         self.curr_step = 0
@@ -169,12 +168,10 @@ class TrailAgent:
         self.odor_history.append((odor, *self.position[:]))
         return odor
 
-    # TODO: optimize over reward scheme
     def get_reward(self) -> Tuple[float, bool]:
-        # TODO: remove?
         # reward = 10 * (self.odor_history[-1][0] - self.odor_history[-2][0])
         reward = -2
-        # reward = 0
+        is_success = False
 
         if np.isclose(self.map.sample(*self.position), 0, atol=1e-2):
             self.off_trail_step += 1
@@ -189,8 +186,9 @@ class TrailAgent:
         is_done = self.map.is_done(*self.position)
         if is_done:
             reward = 100
+            is_success = True
 
-        return reward, is_done
+        return reward, is_done, is_success
 
     def make_observation(self):
         pos_obs = self.make_pos_observation()
@@ -325,11 +323,11 @@ class SummaryCallback(BaseCallback):
 #     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=5,  length=80, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
 #     .add_ckpt(20000, breaks=[(0.5, 0.8)], width=5,  length=90, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
 
-schedule = Schedule(trail_class) \
-    .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 4 * np.pi / 12,   4 * np.pi / 12)) \
-    .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 6 * np.pi / 12,   6 * np.pi / 12)) \
-    .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 10 * np.pi / 12, 10 * np.pi / 12)) \
-    .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 12 * np.pi / 12, 12 * np.pi / 12)) \
+# teacher = ManualTeacher(trail_class) \
+#     .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 4 * np.pi / 12,   4 * np.pi / 12)) \
+#     .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 6 * np.pi / 12,   6 * np.pi / 12)) \
+#     .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 10 * np.pi / 12, 10 * np.pi / 12)) \
+#     .add_ckpt(15000, width=5,  length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 12 * np.pi / 12, 12 * np.pi / 12)) \
 
 # schedule = Schedule(trail_class) \
 #     .add_ckpt(20000, width=30, length=30, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 4, np.pi / 4)) \
@@ -338,6 +336,8 @@ schedule = Schedule(trail_class) \
 #     .add_ckpt(15000, width=10, length=50, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi / 2, np.pi / 2)) \
 #     .add_ckpt(15000, width=10, length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 3 * np.pi / 4, 3 * np.pi / 4)) \
 #     .add_ckpt(15000, width=10, length=70, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi, np.pi)) \
+
+teacher = IncrementalTeacher()
 
 if __name__ == '__main__':
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
@@ -369,11 +369,10 @@ if __name__ == '__main__':
     
     print('POLICY NETWORKS:')
     print(model.policy)
-    # TODO: schedule pretrained agent
-    model.set_parameters('trained/epoch_3/possible_caster_feb5.zip')
+    # model.set_parameters('trained/epoch_3/possible_caster_feb5.zip')
 
     model.learn(total_timesteps=1000000, log_interval=5,
-                eval_env=eval_env, eval_freq=512, callback=[ScheduleCallback(schedule, eval_env), SummaryCallback()])
+                eval_env=eval_env, eval_freq=512, callback=[CurriculumCallback(teacher, eval_env), SummaryCallback()])
     model.save('trail_model')
     exit()
     
