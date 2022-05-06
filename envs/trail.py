@@ -10,6 +10,8 @@ import numpy as np
 import torch
 
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+
 from stable_baselines3 import PPO
 from skimage.transform import rescale
 from typing import Tuple
@@ -25,7 +27,6 @@ except ImportError as e:
     from .curriculum import *
 except Exception as e:
     raise e
-
 
 
 class TrailEnv(gym.Env):
@@ -341,8 +342,6 @@ class SummaryCallback(BaseCallback):
 teacher = RandomTeacher(TrailEnv)
 
 if __name__ == '__main__':
-    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
-
     def env_fn(): return TrailEnv(None, discrete=global_discrete, treadmill=global_treadmill)
 
     # env = DummyVecEnv([env_fn for _ in range(8)])
