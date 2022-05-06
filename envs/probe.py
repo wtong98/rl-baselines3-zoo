@@ -19,12 +19,12 @@ global_treadmill = True
 trail_class = MeanderTrail
 # trail_args = {'width': 3, 'length': 69, 'radius': 100, 'diff_rate': 0.04, 'breaks': [(0.5, 0.8)]}
 trail_args = {
-    'width': 10, 
+    'width': 5, 
     'length': 90, 
     'radius': 100, 
     'diff_rate': 0.01, 
     'reward_dist': 3,
-    'breaks':[(0.6, 0.8)]
+    # 'breaks':[(0.6, 0.8)]
     # 'breaks':[(0.5, 0.99)]
 }
 
@@ -37,8 +37,7 @@ trail_args = {
 
 trail_map = trail_class(**trail_args, heading=0)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
-model = PPO.load('trained/epoch_4/meander_360_feb22.zip', device='cpu')
-# model = PPO.load('trained/epoch_3/possible_caster_feb5.zip', device='cpu')
+model = PPO.load('tmp_inc_model', device='cpu')
 # model = PPO("CnnPolicy", env, verbose=1,
 #             n_steps=128,
 #             batch_size=256,

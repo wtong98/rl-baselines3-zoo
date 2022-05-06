@@ -14,12 +14,12 @@ class CurriculumCallback(BaseCallback):
         super().__init__(verbose=verbose)
         self.eval_env = eval_env
         self.teacher = teacher
-        self.teacher.load_logger(self.logger)
 
         self.curr_iter = 0
         self.curr_gen = 0
     
     def _on_training_start(self) -> None:
+        self.teacher.load_logger(self.logger)
         self.teacher.load_student(self.model, self.eval_env)
         self.curr_ckpt = self.teacher.next_checkpoint()
         self.training_env.env_method('queue_map', self.curr_ckpt['map'])
@@ -132,7 +132,7 @@ class Teacher:
     def _test_student(self, student, env):
         total_success = 0
 
-        for i in range(self.n_test_episodes):
+        for _ in range(self.n_test_episodes):
             is_done = False
             obs = env.reset()
             while not is_done:
@@ -161,9 +161,12 @@ class IncrementalTeacher(Teacher):
 
 
 class RandomTeacher(Teacher):
-    def __init__(self, target_env):
+    def __init__(self, env_class, target_env=None):  # TODO: env_class is hacky -- fix imports
         super().__init__()
         self.prob_threshold = 0.9
+
+        if target_env == None:
+            target_env = env_class(MeanderTrail(length=self.length_schedule[-1], **self.trail_args))
         self.target_env = target_env
     
     def _update_sched_idx(self):

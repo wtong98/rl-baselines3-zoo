@@ -16,6 +16,7 @@ git_rewrite_commit_history.sh
 
 log/
 *.gif
+*.png
 *.zip
 trained/
 fig/
