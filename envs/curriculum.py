@@ -114,7 +114,7 @@ class Teacher:
         if not self.fresh:
             success_prob = self._test_student(self.student, self.eval_env)
             self.trajectory.append((self.sched_idx, success_prob))
-            if self.logger:   # TODO: logger not showing up
+            if self.logger:
                 self.logger.record('trajectory/sched_idx', self.sched_idx)
                 self.logger.record('trajectory/success_prob', success_prob)
             self._update_sched_idx()
@@ -157,6 +157,7 @@ class IncrementalTeacher(Teacher):
         if prob > self.prob_threshold:
             self.sched_idx += 1
             if self.sched_idx == len(self.length_schedule):
+                print('FINAL SCHED IDX', self.sched_idx)
                 raise StopIteration
 
 

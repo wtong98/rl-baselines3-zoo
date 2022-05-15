@@ -338,8 +338,8 @@ class SummaryCallback(BaseCallback):
 #     .add_ckpt(15000, width=10, length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 3 * np.pi / 4, 3 * np.pi / 4)) \
 #     .add_ckpt(15000, width=10, length=70, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi, np.pi)) \
 
-# teacher = IncrementalTeacher()
-teacher = RandomTeacher(TrailEnv)
+teacher = IncrementalTeacher()
+# teacher = RandomTeacher(TrailEnv)
 
 if __name__ == '__main__':
     def env_fn(): return TrailEnv(None, discrete=global_discrete, treadmill=global_treadmill)
