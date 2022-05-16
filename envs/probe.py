@@ -37,7 +37,7 @@ trail_args = {
 
 trail_map = trail_class(**trail_args, heading=0)
 env = TrailEnv(trail_map, discrete=global_discrete, treadmill=global_treadmill)
-model = PPO.load('tmp_inc_model', device='cpu')
+model = PPO.load('trail_model', device='cpu')
 # model = PPO("CnnPolicy", env, verbose=1,
 #             n_steps=128,
 #             batch_size=256,

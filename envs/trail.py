@@ -338,7 +338,7 @@ class SummaryCallback(BaseCallback):
 #     .add_ckpt(15000, width=10, length=60, diff_rate=0.01, radius=100, reward_dist=3, range=(- 3 * np.pi / 4, 3 * np.pi / 4)) \
 #     .add_ckpt(15000, width=10, length=70, diff_rate=0.01, radius=100, reward_dist=3, range=(-np.pi, np.pi)) \
 
-teacher = IncrementalTeacher()
+teacher = IncrementalTeacher(len_sched=[10, 20, 30, 40, 50, 60])
 # teacher = RandomTeacher(TrailEnv)
 
 if __name__ == '__main__':

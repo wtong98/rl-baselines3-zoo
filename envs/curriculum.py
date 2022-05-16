@@ -77,17 +77,17 @@ class ManualTeacher:
 
 
 class Teacher:
-    def __init__(self):
+    def __init__(self, len_sched=None):
         self.trail_class = MeanderTrail
         self.trail_args = {
             'width': 5,
             'diff_rate': 0.01,
             'radius': 100,
-            'reward_dist': 3,
+            'reward_dist': -1,
             'range': (-np.pi / 3, np.pi / 3)
         }
 
-        self.length_schedule = [20, 30, 40]
+        self.length_schedule = len_sched if len_sched != None else [10, 20, 30]
         self.sched_idx = 0
 
         self.n_iters_per_ckpt = 1000
@@ -147,8 +147,8 @@ class Teacher:
 
 
 class IncrementalTeacher(Teacher):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **teacher_kwargs):
+        super().__init__(**teacher_kwargs)
         self.prob_threshold = 0.9
     
     def _update_sched_idx(self):
@@ -162,8 +162,8 @@ class IncrementalTeacher(Teacher):
 
 
 class RandomTeacher(Teacher):
-    def __init__(self, env_class, target_env=None):  # TODO: env_class is hacky -- fix imports
-        super().__init__()
+    def __init__(self, env_class, target_env=None, **teacher_kwargs):  # TODO: env_class is hacky -- fix imports
+        super().__init__(**teacher_kwargs)
         self.prob_threshold = 0.9
 
         if target_env == None:

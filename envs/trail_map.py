@@ -210,8 +210,9 @@ class MeanderTrail(TrailMap):
         ckpt_len = int(self.reward_dist / dt)
 
         for i in range(n_samps - 1):
-            if i % ckpt_len == 0 and i != 0:
-                ckpts.append((x[i], y[i]))
+            if self.reward_dist != -1:
+                if i % ckpt_len == 0 and i != 0:
+                    ckpts.append((x[i], y[i]))
 
             x[i + 1] = x[i] + dt * np.cos(theta[i])
             y[i + 1] = y[i] + dt * np.sin(theta[i])
@@ -246,8 +247,10 @@ class MeanderTrail(TrailMap):
         points = np.stack((x, y), axis=0)[:, break_mask]
         net_x, net_y = rot_mat @ points
 
-        ckpts = rot_mat @ np.array(ckpts).T
-        return net_x, net_y, ckpts.T
+        if len(ckpts) > 0:
+            ckpts = np.array(ckpts) @ rot_mat.T
+        
+        return net_x, net_y, ckpts
 
     
     def sample(self, x, y):
@@ -339,7 +342,7 @@ class BrokenMeanderTrail(MeanderTrail):
 
 if __name__ == '__main__':
     # trail = MeanderTrail(width=10, radius=70, diff_rate=0.05, length=65)
-    trail = MeanderTrail(width=10, radius=100, diff_rate=0.01, length=30, breaks=[(0.5, 0.8)], reward_dist=3)
+    trail = MeanderTrail(width=10, radius=100, diff_rate=0.01, length=30, breaks=[(0.5, 0.8)], reward_dist=-1)
     # trail = BrokenMeanderTrail(exp_breaks=1, exp_len=10, trail_length=100, diff_rate=0.01)
     trail.plot()
 
